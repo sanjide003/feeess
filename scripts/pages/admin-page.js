@@ -8531,6 +8531,8 @@ onAuthStateChanged(auth, async (user) => {
             renderDashboard();
         });
 
+// [FIX: QUOTA] Wrap in check or disable for now
+        /*
         onSnapshot(academicYearsRef, async (academicSnap) => {
             if (!academicSnap.exists()) {
                 academicYears = [{
@@ -8582,7 +8584,9 @@ onAuthStateChanged(auth, async (user) => {
             renderAcademicYears();
             refreshAcademicYearScopedData();
         });
+*/
 
+        /*
         onSnapshot(configRef, (docSnap) => {
             const d = docSnap.exists() ? docSnap.data() : {};
 
@@ -8656,6 +8660,7 @@ onAuthStateChanged(auth, async (user) => {
             renderDashboard();
             if(!document.getElementById('fee-settings-page').classList.contains('hidden')) renderFeeItemsManagement();
         });
+*/
 
         onSnapshot(doc(db, `${BASE_PATH}/settings`, 'content'), (snap) => {
             webContent = snap.exists() ? Object.assign({ notices: [], gallery: [], directoryCategories: [] }, snap.data()) : { notices: [], gallery: [], directoryCategories: [] };
@@ -8677,6 +8682,7 @@ onAuthStateChanged(auth, async (user) => {
             renderDirectoryEntries();
         });
 
+        /*
         onSnapshot(collection(db, `${BASE_PATH}/students`), (snap) => {
             rawStudents = snap.docs.map(d => ({id: d.id, ...d.data()}));
             refreshAcademicYearScopedData();
@@ -8702,6 +8708,7 @@ onAuthStateChanged(auth, async (user) => {
         onSnapshot(collection(db, `${BASE_PATH}/payments`), (snap) => {
             allPayments = snap.docs.map(d => ({id: d.id, ...d.data()}));
         });
+*/
 
         // Result module fully moved to standalone result.html/result-page.js.
 
