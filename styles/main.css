@@ -1722,12 +1722,41 @@ body:has(#fee-page:not(.hidden)) main {
 }
 
 /* Full-screen Desktop Layout for Admin and Result pages (matching worksheet.html) */
-#admin-app main,
-#admin-app .page {
+#admin-app main {
     width: 100% !important;
     max-width: none !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
+}
+
+#admin-app .page {
+    width: 100% !important;
+    max-width: 1720px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+@media (min-width: 1024px) {
+    /* Prevent standalone single-line dropzones from stretching infinitely */
+    #admin-app .upload-area {
+        max-width: 680px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Professional desktop table layout */
+    #admin-app table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    #admin-app table th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #f8fafc;
+    }
 }
 
 body[data-session-guard="result"] main,
