@@ -2808,8 +2808,10 @@ function handleExcelFile(file) {
             // Compute diagnostic summary statistics
             const totalCount = excelParsedData.length;
             const validStudents = excelParsedData.filter(s => !s.hasFatalError);
+            const completelyValidStudents = excelParsedData.filter(s => !s.hasFatalError && (s.omittedFields?.length || 0) === 0);
             const fatalRows = excelParsedData.filter(s => s.hasFatalError);
             const validCount = validStudents.length;
+            const completelyValidCount = completelyValidStudents.length;
             const fatalCount = fatalRows.length;
             const totalOmittedFields = validStudents.reduce((acc, s) => acc + (s.omittedFields?.length || 0), 0);
             const mergeCount = validStudents.filter(s => s.isDuplicate).length;
@@ -2819,8 +2821,18 @@ function handleExcelFile(file) {
             const statIssue = document.getElementById('stat-issue-records');
             const statMerge = document.getElementById('stat-merge-records');
             if (statTotal) statTotal.textContent = totalCount;
-            if (statValid) statValid.textContent = validCount;
-            if (statIssue) statIssue.textContent = fatalCount > 0 ? `${fatalCount} Fatal (${totalOmittedFields} fields skipped)` : (totalOmittedFields > 0 ? `${totalOmittedFields} fields skipped` : '0');
+            if (statValid) statValid.textContent = completelyValidCount;
+            if (statIssue) {
+                if (fatalCount > 0 && totalOmittedFields > 0) {
+                    statIssue.textContent = `${fatalCount} Fatal (${totalOmittedFields} fields skipped)`;
+                } else if (fatalCount > 0) {
+                    statIssue.textContent = `${fatalCount} Fatal`;
+                } else if (totalOmittedFields > 0) {
+                    statIssue.textContent = `${totalOmittedFields} fields skipped`;
+                } else {
+                    statIssue.textContent = '0';
+                }
+            }
             if (statMerge) statMerge.textContent = mergeCount;
 
             // Configure action buttons dynamically based on validation results
@@ -2828,26 +2840,31 @@ function handleExcelFile(file) {
             const startBtnText = document.getElementById('start-upload-btn-text');
             const skipBtn = document.getElementById('skip-issues-upload-btn');
             const validOnlyCountSpan = document.getElementById('valid-only-count');
+            const cancelBtn = document.getElementById('cancel-upload-btn');
+
+            if (cancelBtn) cancelBtn.disabled = false;
 
             if (validCount === 0) {
                 if (startBtn) {
                     startBtn.disabled = true;
                     if (startBtnText) startBtnText.textContent = 'Cannot Upload (Missing Names)';
                 }
-                if (skipBtn) skipBtn.classList.add('hidden');
+                if (skipBtn) {
+                    skipBtn.classList.add('hidden');
+                    skipBtn.disabled = true;
+                }
             } else {
                 if (startBtn) {
                     startBtn.disabled = false;
-                    if (fatalCount > 0) {
-                        if (startBtnText) startBtnText.textContent = `Upload ${validCount} Valid (Skip ${fatalCount} Missing Names)`;
-                        if (skipBtn) {
-                            skipBtn.classList.remove('hidden');
-                            if (validOnlyCountSpan) validOnlyCountSpan.textContent = validCount;
-                        }
-                    } else {
-                        if (startBtnText) startBtnText.textContent = `Start Upload (${validCount} Students)`;
-                        if (skipBtn) skipBtn.classList.add('hidden');
+                    if (startBtnText) {
+                        startBtnText.textContent = `Upload All (${validCount})`;
                     }
+                }
+                if (skipBtn) {
+                    // Show "Upload Valid Only" option if there are valid records
+                    skipBtn.classList.remove('hidden');
+                    if (validOnlyCountSpan) validOnlyCountSpan.textContent = completelyValidCount;
+                    skipBtn.disabled = completelyValidCount === 0;
                 }
             }
 
@@ -2868,27 +2885,36 @@ function handleExcelFile(file) {
             if (previewContainer) {
                 if (excelParsedData.length > 0) {
                     const renderCell = (st, fieldKey, displayVal) => {
-                        const statusObj = st.fieldStatuses[fieldKey] || { status: 'valid', val: displayVal };
+                        const statusObj = st.fieldStatuses?.[fieldKey] || { status: 'valid', val: displayVal };
                         let bgClass = '';
                         let titleAttr = '';
                         
                         if (statusObj.status === 'error') {
-                            bgClass = 'bg-rose-100 text-rose-900 border-rose-300 font-semibold';
+                            bgClass = 'bg-rose-50 text-rose-900 border-rose-200';
                             titleAttr = `title="${statusObj.reason || 'Invalid data - will be omitted'}"`;
                         } else if (statusObj.status === 'blank') {
                             bgClass = 'bg-amber-50 text-amber-800 italic';
                             titleAttr = 'title="Blank / Not provided"';
                         }
                         
-                        let display = displayVal;
+                        let display = '';
                         if (statusObj.status === 'error') {
-                            display = displayVal 
-                                ? `<span class="line-through text-rose-500">${escapeHtml(String(displayVal))}</span> <span class="text-[9px] text-rose-700 font-bold block">(Skipped)</span>` 
-                                : '<span class="text-rose-600 font-bold">Missing *</span>';
-                        } else if (!displayVal) {
+                            const rawVal = (statusObj.val !== undefined && statusObj.val !== null && String(statusObj.val).trim() !== '')
+                                ? String(statusObj.val).trim()
+                                : (displayVal !== undefined && displayVal !== null ? String(displayVal).trim() : '');
+                            
+                            if (rawVal) {
+                                display = `<span class="text-rose-600 font-semibold">${escapeHtml(rawVal)}</span>`;
+                            } else {
+                                display = '<span class="text-rose-600 font-bold italic">Missing *</span>';
+                            }
+                        } else if (statusObj.status === 'blank' || (!displayVal && !statusObj.val)) {
                             display = '<span class="text-amber-500 font-normal">--</span>';
                         } else {
-                            display = escapeHtml(String(displayVal));
+                            const valToShow = (statusObj.val !== undefined && statusObj.val !== null && statusObj.val !== '') 
+                                ? statusObj.val 
+                                : displayVal;
+                            display = escapeHtml(String(valToShow));
                         }
                         return `<td class="p-2 border-b border-r border-slate-100 whitespace-nowrap ${bgClass}" ${titleAttr}>${display}</td>`;
                     };
@@ -2998,7 +3024,7 @@ document.getElementById('cancel-upload-btn').addEventListener('click', () => {
     const startBtn = document.getElementById('start-upload-btn');
     const startBtnText = document.getElementById('start-upload-btn-text');
     if (startBtn) startBtn.disabled = false;
-    if (startBtnText) startBtnText.textContent = 'Start Upload';
+    if (startBtnText) startBtnText.textContent = 'Upload All';
     document.getElementById('upload-progress-bar').classList.add('hidden');
     document.getElementById('excel-drop-zone').classList.remove('hidden');
     document.getElementById('excel-preview-area').classList.add('hidden');
@@ -3133,7 +3159,7 @@ async function executeBulkImport(datasetToUpload, mergePolicy) {
     }
 }
 
-// Start Upload Click (Uploads all students with valid names, automatically omitting invalid optional fields)
+// Upload All Click (Uploads all students with valid names, automatically omitting invalid optional fields)
 document.getElementById('start-upload-btn').addEventListener('click', async () => {
     if (!excelParsedData || excelParsedData.length === 0) return;
     const validRows = excelParsedData.filter(s => !s.hasFatalError);
@@ -3148,7 +3174,7 @@ document.getElementById('start-upload-btn').addEventListener('click', async () =
     const selectedBulkClass = (document.getElementById('bulk-upload-class')?.value || '').toUpperCase().trim();
     const totalOmitted = validRows.reduce((acc, s) => acc + (s.omittedFields?.length || 0), 0);
 
-    let confirmMsg = `Confirm upload for ${validRows.length} student(s) to Class ${selectedBulkClass}?`;
+    let confirmMsg = `Upload all ${validRows.length} student(s) to Class ${selectedBulkClass}?`;
     if (totalOmitted > 0) {
         confirmMsg += `\n\n• Note: ${totalOmitted} invalid optional field(s) across these students will be omitted (saved as blank).`;
     }
@@ -3160,15 +3186,25 @@ document.getElementById('start-upload-btn').addEventListener('click', async () =
     await executeBulkImport(validRows, mergePolicy);
 });
 
-// Skip Issues Button Click (Uploads valid students skipping any fatal rows)
+// Upload Valid Only Click (Uploads only completely valid students who have zero fatal errors and zero field errors)
 document.getElementById('skip-issues-upload-btn')?.addEventListener('click', async () => {
     if (!excelParsedData || excelParsedData.length === 0) return;
-    const validRows = excelParsedData.filter(s => !s.hasFatalError);
-    if (!validRows.length) return alert('No valid student rows found.');
+    const completelyValidRows = excelParsedData.filter(s => !s.hasFatalError && (s.omittedFields?.length || 0) === 0);
+    const invalidCount = excelParsedData.length - completelyValidRows.length;
+
+    if (!completelyValidRows.length) {
+        return alert('No completely valid student records without errors found.\n\nYou can use "Upload All" to upload students while skipping invalid optional fields.');
+    }
     const mergePolicy = document.querySelector('input[name="dup-action-policy"]:checked')?.value || 'skip';
+    const selectedBulkClass = (document.getElementById('bulk-upload-class')?.value || '').toUpperCase().trim();
     
-    if (!confirm(`Upload ${validRows.length} valid students? Invalid optional fields will be omitted and saved as blank.`)) return;
-    await executeBulkImport(validRows, mergePolicy);
+    let confirmMsg = `Upload ${completelyValidRows.length} completely valid student(s) to Class ${selectedBulkClass}?`;
+    if (invalidCount > 0) {
+        confirmMsg += `\n\n• Note: ${invalidCount} record(s) containing errors or missing data will be skipped.`;
+    }
+
+    if (!confirm(confirmMsg)) return;
+    await executeBulkImport(completelyValidRows, mergePolicy);
 });
 
 document.getElementById('add-manual-btn')?.addEventListener('click', async () => {
