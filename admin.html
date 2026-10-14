@@ -860,24 +860,93 @@
                 </div>
                 
                 <div class="card p-5 rounded-xl shadow-sm bg-blue-50/30 border-blue-200">
-                    <h2 class="text-xl font-bold mb-4 text-blue-900 border-b border-blue-200 pb-2"><i class="fas fa-random mr-2"></i>Divide / Merge Classes</h2>
-                    <div class="mb-3">
-                        <label class="block text-sm font-semibold mb-1 text-gray-800">Select Source Class</label>
-                        <select id="move-from-class" class="w-full md:w-1/2 p-2.5 border rounded-lg bg-white"><option value="">-- Select --</option></select>
-                    </div>
-                    <div id="move-student-list-container" class="mt-2 space-y-2 max-h-60 overflow-y-auto border border-gray-300 rounded-lg p-3 hidden bg-white shadow-inner"></div>
-                    
-                    <div id="move-target-container" class="mt-4 hidden p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
-                        <label class="block text-sm font-bold text-gray-800 mb-3">Move Selected Students To:</label>
-                        <div class="flex gap-6 mb-3">
-                            <label class="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" name="move_dest_type" value="existing" checked class="w-4 h-4 text-blue-600"> Existing Class</label>
-                            <label class="flex items-center gap-2 cursor-pointer font-medium text-sm"><input type="radio" name="move_dest_type" value="new" class="w-4 h-4 text-blue-600"> New Class</label>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 border-b border-blue-200 pb-3">
+                        <div>
+                            <h2 class="text-xl font-bold text-blue-900 flex items-center gap-2">
+                                <i class="fas fa-random text-blue-600"></i> Divide / Merge Classes
+                            </h2>
+                            <p class="text-xs text-blue-700 mt-0.5">Move students between divisions or reassign classes.</p>
                         </div>
-                        <select id="move-target-sel" class="w-full p-2.5 border rounded-lg bg-gray-50"></select>
-                        <input type="text" id="move-target-inp" class="w-full p-2.5 border rounded-lg bg-gray-50 hidden" placeholder="Enter new class name (e.g. 10 B)">
-                        
-                        <div class="text-right mt-4 pt-3 border-t">
-                            <button id="move-selected-students-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-8 rounded-lg shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>Move Students</button>
+                        <div id="move-selected-badge" class="hidden text-xs font-bold px-3 py-1.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                            Selected: <span id="move-selected-count">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Top Control Panel: Source & Target Classes side by side -->
+                    <div class="bg-white p-4 rounded-xl border border-blue-100 shadow-sm mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                            <!-- Source Class -->
+                            <div class="md:col-span-4">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                    <i class="fas fa-arrow-right-from-bracket text-blue-600 mr-1"></i> 1. Select Source Class
+                                </label>
+                                <select id="move-from-class" class="w-full p-2.5 border rounded-lg bg-slate-50 font-semibold text-slate-800 text-sm focus:bg-white transition">
+                                    <option value="">-- Select Source Class --</option>
+                                </select>
+                            </div>
+
+                            <!-- Target Class (At top, allows selecting existing or entering new) -->
+                            <div class="md:col-span-5" id="move-target-container">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                        <i class="fas fa-arrow-right-to-bracket text-emerald-600 mr-1"></i> 2. Target Class / Move To
+                                    </label>
+                                    <div class="flex items-center gap-3 text-xs font-semibold">
+                                        <label class="flex items-center gap-1 cursor-pointer text-slate-700 hover:text-blue-600">
+                                            <input type="radio" name="move_dest_type" value="existing" checked class="w-3.5 h-3.5 text-blue-600"> Existing
+                                        </label>
+                                        <label class="flex items-center gap-1 cursor-pointer text-slate-700 hover:text-blue-600">
+                                            <input type="radio" name="move_dest_type" value="new" class="w-3.5 h-3.5 text-blue-600"> + New Class
+                                        </label>
+                                    </div>
+                                </div>
+                                <select id="move-target-sel" class="w-full p-2.5 border rounded-lg bg-slate-50 font-semibold text-slate-800 text-sm focus:bg-white transition"></select>
+                                <input type="text" id="move-target-inp" class="w-full p-2.5 border rounded-lg bg-slate-50 font-semibold text-slate-800 text-sm hidden focus:bg-white transition" placeholder="e.g. 10 B or Plus One">
+                            </div>
+
+                            <!-- Move Action Button -->
+                            <div class="md:col-span-3">
+                                <button id="move-selected-students-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95" disabled>
+                                    <i class="fas fa-arrow-right-arrow-left"></i> <span>Move Students</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Students 2-Column Split: Boys & Girls Side by Side on Desktop -->
+                    <div id="move-student-list-container" class="hidden">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <!-- Boys Column (Left) -->
+                            <div class="border border-blue-200 bg-blue-50/40 rounded-xl p-3.5 flex flex-col">
+                                <div class="flex items-center justify-between pb-2.5 border-b border-blue-200 mb-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
+                                            <i class="fas fa-male text-sm"></i>
+                                        </span>
+                                        <span class="font-bold text-sm text-blue-950">Boys (<span id="move-boys-count">0</span>)</span>
+                                    </div>
+                                    <label class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 cursor-pointer hover:text-blue-900 select-none">
+                                        <input type="checkbox" id="move-all-boys" class="w-4 h-4 rounded text-blue-600"> Select All Boys
+                                    </label>
+                                </div>
+                                <div id="move-boys-list" class="space-y-1.5 max-h-[380px] overflow-y-auto pr-1"></div>
+                            </div>
+
+                            <!-- Girls Column (Right) -->
+                            <div class="border border-rose-200 bg-rose-50/40 rounded-xl p-3.5 flex flex-col">
+                                <div class="flex items-center justify-between pb-2.5 border-b border-rose-200 mb-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-7 h-7 rounded-lg bg-rose-500 text-white flex items-center justify-center text-xs font-bold">
+                                            <i class="fas fa-female text-sm"></i>
+                                        </span>
+                                        <span class="font-bold text-sm text-rose-950">Girls (<span id="move-girls-count">0</span>)</span>
+                                    </div>
+                                    <label class="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 cursor-pointer hover:text-rose-900 select-none">
+                                        <input type="checkbox" id="move-all-girls" class="w-4 h-4 rounded text-rose-600"> Select All Girls
+                                    </label>
+                                </div>
+                                <div id="move-girls-list" class="space-y-1.5 max-h-[380px] overflow-y-auto pr-1"></div>
+                            </div>
                         </div>
                     </div>
                 </div>

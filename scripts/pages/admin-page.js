@@ -4770,47 +4770,164 @@ document.getElementById('edit-class-update').addEventListener('click', async () 
     }
 });
 
-const moveListCont = document.getElementById('move-student-list-container'), moveBtn = document.getElementById('move-selected-students-btn'), tgtCont = document.getElementById('move-target-container');
+const moveListCont = document.getElementById('move-student-list-container');
+const moveBtn = document.getElementById('move-selected-students-btn');
+const moveBoysList = document.getElementById('move-boys-list');
+const moveGirlsList = document.getElementById('move-girls-list');
+const moveBoysCount = document.getElementById('move-boys-count');
+const moveGirlsCount = document.getElementById('move-girls-count');
+const moveAllBoys = document.getElementById('move-all-boys');
+const moveAllGirls = document.getElementById('move-all-girls');
+const moveSelectedBadge = document.getElementById('move-selected-badge');
+const moveSelectedCount = document.getElementById('move-selected-count');
 let editGroupWorkingMembers = [];
+
+const updateMoveSelectionUI = () => {
+    const checkedCount = document.querySelectorAll('.move-chk:checked').length;
+    const boysTotal = document.querySelectorAll('.move-chk-boy').length;
+    const boysChecked = document.querySelectorAll('.move-chk-boy:checked').length;
+    const girlsTotal = document.querySelectorAll('.move-chk-girl').length;
+    const girlsChecked = document.querySelectorAll('.move-chk-girl:checked').length;
+
+    if (moveAllBoys) moveAllBoys.checked = boysTotal > 0 && boysChecked === boysTotal;
+    if (moveAllGirls) moveAllGirls.checked = girlsTotal > 0 && girlsChecked === girlsTotal;
+
+    if (moveBtn) {
+        moveBtn.disabled = checkedCount === 0;
+        moveBtn.innerHTML = `<i class="fas fa-arrow-right-arrow-left mr-1"></i> Move Students${checkedCount > 0 ? ` (${checkedCount})` : ''}`;
+    }
+    if (moveSelectedBadge) {
+        moveSelectedBadge.classList.toggle('hidden', checkedCount === 0);
+    }
+    if (moveSelectedCount) {
+        moveSelectedCount.textContent = checkedCount;
+    }
+};
+
 document.getElementById('move-from-class').addEventListener('change', (e) => {
-    const cName = e.target.value; moveBtn.disabled = true;
-    if(!cName) { moveListCont.classList.add('hidden'); tgtCont.classList.add('hidden'); return; }
-    const inClass = students.filter(s => s.class === cName).sort((a,b)=>a.name.localeCompare(b.name));
-    moveListCont.classList.remove('hidden'); tgtCont.classList.remove('hidden');
-    if(inClass.length === 0) { moveListCont.innerHTML = '<p class="text-sm italic text-gray-500">No students found in this class.</p>'; return; }
-    let h = `<div class="mb-3 pb-3 border-b border-gray-200"><input type="checkbox" id="move-all" class="mr-2 w-4 h-4 rounded"><label for="move-all" class="font-bold text-gray-800">Select All Students</label></div>`;
-    inClass.forEach(s => h += `<div class="flex items-center mb-2"><input type="checkbox" class="move-chk mr-3 w-4 h-4 rounded" value="${s.id}" id="m-${s.id}"><label for="m-${s.id}" class="text-sm font-medium text-gray-700">${s.name} <span class="text-xs text-gray-400 font-mono ml-2">(Adm: ${s.adm||'-'})</span></label></div>`);
-    moveListCont.innerHTML = h;
+    const cName = (e.target.value || '').trim();
+    if (!cName) {
+        if (moveListCont) moveListCont.classList.add('hidden');
+        if (moveBoysList) moveBoysList.innerHTML = '';
+        if (moveGirlsList) moveGirlsList.innerHTML = '';
+        updateMoveSelectionUI();
+        return;
+    }
+
+    const inClass = students.filter(s => s.class === cName);
+    const boys = inClass.filter(s => (s.gender || 'Male').toLowerCase().startsWith('m')).sort((a,b)=>a.name.localeCompare(b.name));
+    const girls = inClass.filter(s => (s.gender || '').toLowerCase().startsWith('f')).sort((a,b)=>a.name.localeCompare(b.name));
+
+    if (moveBoysCount) moveBoysCount.textContent = boys.length;
+    if (moveGirlsCount) moveGirlsCount.textContent = girls.length;
+    if (moveAllBoys) moveAllBoys.checked = false;
+    if (moveAllGirls) moveAllGirls.checked = false;
+
+    if (moveBoysList) {
+        moveBoysList.innerHTML = boys.length === 0
+            ? '<p class="text-xs text-slate-400 italic py-4 text-center">No boys found in this class.</p>'
+            : boys.map(s => `
+                <label class="flex items-center justify-between p-2 rounded-lg border border-blue-100 bg-white hover:bg-blue-50/70 transition cursor-pointer select-none shadow-xs">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <input type="checkbox" class="move-chk move-chk-boy w-4 h-4 rounded text-blue-600 focus:ring-blue-500" value="${escapeHtml(s.id)}" id="m-${escapeHtml(s.id)}">
+                        <span class="text-xs font-bold text-slate-800 truncate">${escapeHtml(s.name)}</span>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-500 font-mono shrink-0 ml-2">Adm: ${escapeHtml(s.adm || '-')}</span>
+                </label>
+            `).join('');
+    }
+
+    if (moveGirlsList) {
+        moveGirlsList.innerHTML = girls.length === 0
+            ? '<p class="text-xs text-slate-400 italic py-4 text-center">No girls found in this class.</p>'
+            : girls.map(s => `
+                <label class="flex items-center justify-between p-2 rounded-lg border border-rose-100 bg-white hover:bg-rose-50/70 transition cursor-pointer select-none shadow-xs">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <input type="checkbox" class="move-chk move-chk-girl w-4 h-4 rounded text-rose-600 focus:ring-rose-500" value="${escapeHtml(s.id)}" id="m-${escapeHtml(s.id)}">
+                        <span class="text-xs font-bold text-slate-800 truncate">${escapeHtml(s.name)}</span>
+                    </div>
+                    <span class="text-[11px] font-semibold text-slate-500 font-mono shrink-0 ml-2">Adm: ${escapeHtml(s.adm || '-')}</span>
+                </label>
+            `).join('');
+    }
+
+    if (moveListCont) moveListCont.classList.remove('hidden');
+    updateMoveSelectionUI();
 });
-moveListCont.addEventListener('change', e => { if(e.target.id === 'move-all') document.querySelectorAll('.move-chk').forEach(c => c.checked = e.target.checked); moveBtn.disabled = document.querySelectorAll('.move-chk:checked').length === 0; });
+
+moveAllBoys?.addEventListener('change', (e) => {
+    document.querySelectorAll('.move-chk-boy').forEach(c => c.checked = e.target.checked);
+    updateMoveSelectionUI();
+});
+
+moveAllGirls?.addEventListener('change', (e) => {
+    document.querySelectorAll('.move-chk-girl').forEach(c => c.checked = e.target.checked);
+    updateMoveSelectionUI();
+});
+
+moveListCont?.addEventListener('change', (e) => {
+    if (e.target.classList.contains('move-chk')) {
+        updateMoveSelectionUI();
+    }
+});
+
 document.querySelectorAll('input[name="move_dest_type"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
-        if(e.target.value === 'existing') { document.getElementById('move-target-sel').classList.remove('hidden'); document.getElementById('move-target-inp').classList.add('hidden'); }
-        else { document.getElementById('move-target-sel').classList.add('hidden'); document.getElementById('move-target-inp').classList.remove('hidden'); }
+        if(e.target.value === 'existing') {
+            document.getElementById('move-target-sel')?.classList.remove('hidden');
+            document.getElementById('move-target-inp')?.classList.add('hidden');
+        } else {
+            document.getElementById('move-target-sel')?.classList.add('hidden');
+            document.getElementById('move-target-inp')?.classList.remove('hidden');
+        }
     });
 });
+
 moveBtn.addEventListener('click', async () => {
     if(!requirePermission('classes.manage')) return;
     const ids = Array.from(document.querySelectorAll('.move-chk:checked')).map(c=>c.value);
-    const isNew = document.querySelector('input[name="move_dest_type"]:checked').value === 'new';
-    const targetClass = isNew ? document.getElementById('move-target-inp').value.trim().toUpperCase() : document.getElementById('move-target-sel').value;
+    const isNew = document.querySelector('input[name="move_dest_type"]:checked')?.value === 'new';
+    const targetClass = isNew
+        ? (document.getElementById('move-target-inp')?.value || '').trim().toUpperCase()
+        : (document.getElementById('move-target-sel')?.value || '').trim();
 
-    if(!targetClass) return alert("Please specify target class.");
-    if(!confirm(`Move these ${ids.length} students to class ${targetClass}?`)) return;
+    if(!ids.length) return alert("Please select at least one student to move.");
+    if(!targetClass) return alert("Please specify the target class.");
+    if(!confirm(`Move ${ids.length} selected student(s) to class ${targetClass}?`)) return;
 
-    const batch = writeBatch(db); ids.forEach((id) => {
-        batch.update(doc(db, `${BASE_PATH}/students`, id), { class: targetClass });
-        const student = rawStudents.find((entry) => entry.id === id);
-        batch.set(
-            getEnrollmentRef(student?.academicYear || currentAcademicYear, id),
-            buildEnrollmentPayload(id, { ...(student || {}), class: targetClass }),
-            { merge: true }
-        );
-    });
-    await batch.commit();
-    await syncActiveAcademicYearClasses([targetClass]);
-    await logAuditEvent({ category: 'class', action: 'student.move', entityType: 'student', message: `Moved ${ids.length} students to ${targetClass}.`, metadata: { targetClass, ids } });
-    alert('Students moved successfully.'); document.getElementById('move-from-class').value = ''; moveListCont.classList.add('hidden'); tgtCont.classList.add('hidden');
+    try {
+        moveBtn.disabled = true;
+        moveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Moving...';
+        const batch = writeBatch(db);
+        ids.forEach((id) => {
+            batch.update(doc(db, `${BASE_PATH}/students`, id), { class: targetClass });
+            const student = rawStudents.find((entry) => entry.id === id);
+            batch.set(
+                getEnrollmentRef(student?.academicYear || currentAcademicYear, id),
+                buildEnrollmentPayload(id, { ...(student || {}), class: targetClass }),
+                { merge: true }
+            );
+        });
+        await batch.commit();
+        await syncActiveAcademicYearClasses([targetClass]);
+        await logAuditEvent({
+            category: 'class',
+            action: 'student.move',
+            entityType: 'student',
+            message: `Moved ${ids.length} students to ${targetClass}.`,
+            metadata: { targetClass, ids }
+        });
+        alert(`Successfully moved ${ids.length} student(s) to class ${targetClass}.`);
+        document.getElementById('move-from-class').value = '';
+        if (moveListCont) moveListCont.classList.add('hidden');
+        updateMoveSelectionUI();
+    } catch (err) {
+        console.error("Move students error:", err);
+        alert("Error moving students: " + err.message);
+    } finally {
+        moveBtn.disabled = false;
+        updateMoveSelectionUI();
+    }
 });
 
 // --- 5. GROUPS ---
