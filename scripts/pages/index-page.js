@@ -221,7 +221,7 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                 if (switched) window.location.href = 'student.html';
             }
             if (removeBtn) {
-                if (!confirm('ഈ account remove ചെയ്യട്ടേ?')) return;
+                if (!confirm('Remove this account?')) return;
                 window.AppSession?.logoutStudent(removeBtn.dataset.id, { removeAccount: true });
                 renderSavedStudents();
             }

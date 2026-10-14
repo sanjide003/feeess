@@ -13,7 +13,7 @@ applyCachedInstitutionLogo(['admin-header-logo', 'admin-loader-logo']);
 let isStaffAdminSession = false;
 let staffAdminRecord = null;
 
-const confirmPublicExit = (message = 'Public page-ിലേക്ക് പോകുമ്പോൾ ഈ സെഷൻ logout ചെയ്യും. തുടരട്ടേ?') => confirm(message);
+const confirmPublicExit = (message = 'Navigating to the public page will log out this session. Do you want to continue?') => confirm(message);
 window.logoutAdmin = (options = {}) => {
     const { skipConfirm = false } = options;
     if(!skipConfirm && !confirmPublicExit()) return;
@@ -60,7 +60,6 @@ const PAGE_PERMISSIONS = {
     'manage-staff': 'staff.manage',
     'add-students': 'students.manage',
     'manage-students': 'students.manage',
-    'promote-students': 'students.manage',
     'student-continuity': 'students.manage',
     'manage-classes': 'classes.manage',
     'manage-groups': 'groups.manage',
@@ -1212,7 +1211,7 @@ const activateAdminPage = (targetId, options = {}) => {
     if(targetId === 'dashboard') renderDashboard();
     if(targetId === 'academic-years') renderAcademicYears();
     if(targetId === 'manage-students') { populateManageAcademicYearDropdown(); populateClassDropdowns(); renderStudentList(); }
-    if(targetId === 'promote-students') renderPromotionTool();
+    if(targetId === 'promote-students') { window.location.href = 'result.html'; return; }
     if(targetId === 'student-continuity') renderContinuityPage();
     if(targetId === 'manage-classes') { populateClassDropdowns(); renderClassList(); }
     if(targetId === 'manage-groups') renderStudentGroups();
@@ -1459,7 +1458,7 @@ const startAdminCameraStream = async (facingMode = 'user') => {
         return true;
     } catch (err) {
         console.error('Camera access error:', err);
-        alert('ക്യാമറ ആക്സസ് ചെയ്യാൻ കഴിഞ്ഞില്ല. ബ്രൗസറിൽ ക്യാമറ അനുമതി നൽകിയിട്ടുണ്ടോ എന്ന് പരിശോധിക്കുക.');
+        alert('Unable to access camera. Please check camera permissions in browser.');
         return false;
     }
 };
@@ -1531,7 +1530,7 @@ const initBasicInfoLogoWidget = () => {
                 updateLogoWidgetPreview(base64);
             } catch (err) {
                 console.error('Logo compression failed:', err);
-                alert('ലോഗോ പ്രോസസ്സ് ചെയ്യാൻ കഴിഞ്ഞില്ല: ' + (err?.message || 'Error'));
+                alert('Unable to process logo: ' + (err?.message || 'Error'));
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerHTML = '<i class="fas fa-upload mr-1"></i> Upload Logo';
@@ -1897,7 +1896,7 @@ const extractAndValidateStaffForm = (prefix = 'st') => {
         const label = el.dataset.staffFieldLabel || key;
         const val = String(el.value || '').trim();
         if (required && !val) {
-            alert(`"${label}" നിർബന്ധമായും പൂരിപ്പിക്കണം! (${label} is required)`);
+            alert(`"${label}" is required!`);
             el.focus?.();
             return null;
         }
@@ -1925,7 +1924,7 @@ const extractAndValidateStaffForm = (prefix = 'st') => {
     const hasAnyPortalAccess = canCollect || canAccessWorksheet || canManageResults || canAccessAdmin;
     const passwordInputExists = fieldElements.some((el) => el.dataset.staffFieldKey === 'password');
     if (hasAnyPortalAccess && passwordInputExists && values.email && !values.password) {
-        alert('Portal access നൽകുമ്പോൾ Login Password കൂടി നൽകുക.');
+        alert('Please provide a Login Password when granting portal access.');
         return null;
     }
 
@@ -1956,7 +1955,7 @@ document.getElementById('add-staff-btn').addEventListener('click', async () => {
     if(!requirePermission('staff.manage')) return;
     const staffRecord = extractAndValidateStaffForm('st');
     if (!staffRecord) return;
-    if(!confirm("പുതിയ സ്റ്റാഫിനെ ചേർക്കട്ടെ?")) return;
+    if(!confirm("Add new staff member?")) return;
     const btn = document.getElementById('add-staff-btn'); btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
 
     const staffDoc = await addDoc(collection(db, `${BASE_PATH}/staff`), staffRecord);
@@ -2076,7 +2075,7 @@ const renderStaffList = () => {
 
 window.toggleStaffStatus = async (id, status) => {
     if(!requirePermission('staff.manage')) return;
-    if(!confirm(`അക്കൗണ്ട് ${status ? 'ആക്റ്റീവ്' : 'ഇൻ-ആക്റ്റീവ്'} ആക്കട്ടെ?`)) return;
+    if(!confirm(`Set account to ${status ? 'Active' : 'Inactive'}?`)) return;
     const staffRecord = allStaff.find((staffMember) => staffMember.id === id);
     await updateDoc(doc(db, `${BASE_PATH}/staff`, id), { isActive: status });
     if (staffRecord?.email) await syncStaffAccessRecord({ ...staffRecord, isActive: status });
@@ -2084,7 +2083,7 @@ window.toggleStaffStatus = async (id, status) => {
 };
 window.deleteStaff = async (id) => {
     if(!requirePermission('staff.manage')) return;
-    if(!confirm("സ്ഥിരമായി ഡിലീറ്റ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Permanently delete this staff member?")) return;
     const staffRecord = allStaff.find((staffMember) => staffMember.id === id);
     await deleteDoc(doc(db, `${BASE_PATH}/staff`, id));
     if (staffRecord?.email) await removeStaffAccessRecord(staffRecord.email);
@@ -2264,7 +2263,7 @@ document.getElementById('edit-staff-update').onclick = async () => {
     if(!requirePermission('staff.manage')) return;
     const nextStaffRecord = extractAndValidateStaffForm('e-st');
     if (!nextStaffRecord) return;
-    if(!confirm("മാറ്റങ്ങൾ സേവ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Save changes?")) return;
     const existingStaff = allStaff.find((staffMember) => staffMember.id === editingStaffId) || {};
     const mergedRecord = {
         ...existingStaff,
@@ -2295,7 +2294,7 @@ window.resetStaffCredentials = async (id) => {
     const nextPassword = prompt('New login password for this staff account:', staffRecord.password || '');
     if (nextPassword === null) return;
     if (!nextPassword.trim()) return alert('Password cannot be empty.');
-    if(!confirm(`${staffRecord.name || 'Staff'}-ന് പുതിയ login credentials save ചെയ്യട്ടേ?`)) return;
+    if(!confirm(`Save new login credentials for ${staffRecord.name || 'Staff'}?`)) return;
 
     const nextStaffPayload = {
         ...staffRecord,
@@ -3024,7 +3023,7 @@ const saveStudentPortalPermissions = async () => {
         }
     } catch (err) {
         console.error('Failed to update student portal permissions:', err);
-        alert('പെർമിഷൻ സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല: ' + err.message);
+        alert('Unable to save permissions: ' + err.message);
     }
 };
 
@@ -3564,491 +3563,6 @@ document.getElementById('export-students-excel-btn')?.addEventListener('click', 
 document.getElementById('export-students-csv-btn')?.addEventListener('click', exportStudentsToCSV);
 document.getElementById('export-students-pdf-btn')?.addEventListener('click', exportStudentsToPDF);
 
-// --- 3.1 ANNUAL BULK PROMOTION SYSTEM ---
-let promotionDraft = [];
-
-const renderPromotionTool = () => {
-    const sourceYearSelect = document.getElementById('promote-source-year');
-    const sourceClassSelect = document.getElementById('promote-source-class');
-    const targetYearSelect = document.getElementById('promote-target-year');
-    if (!sourceYearSelect || !targetYearSelect || !sourceClassSelect) return;
-
-    const sortedYears = [...academicYears].sort((a, b) => (b.startYear || 0) - (a.startYear || 0));
-    if (sortedYears.length === 0) {
-        sourceYearSelect.innerHTML = `<option value="${escapeHtml(currentAcademicYear)}">${escapeHtml(currentAcademicYear)}</option>`;
-        targetYearSelect.innerHTML = `<option value="">No years configured</option>`;
-        return;
-    }
-
-    const currentSource = sourceYearSelect.value || getActiveAcademicYearLabel();
-    sourceYearSelect.innerHTML = sortedYears.map(y => {
-        const isCurrent = y.label === activeAcademicYear;
-        return `<option value="${escapeHtml(y.label)}">${escapeHtml(y.label)} ${isCurrent ? '(Current)' : ''}</option>`;
-    }).join('');
-
-    if (sortedYears.some(y => y.label === currentSource)) {
-        sourceYearSelect.value = currentSource;
-    } else {
-        sourceYearSelect.value = getActiveAcademicYearLabel();
-    }
-
-    const currentTarget = targetYearSelect.value;
-    targetYearSelect.innerHTML = sortedYears.map(y => `<option value="${escapeHtml(y.label)}">${escapeHtml(y.label)}</option>`).join('');
-
-    if (currentTarget && currentTarget !== sourceYearSelect.value && sortedYears.some(y => y.label === currentTarget)) {
-        targetYearSelect.value = currentTarget;
-    } else {
-        const nextYear = sortedYears.find(y => y.label !== sourceYearSelect.value && (y.startYear || 0) >= (sortedYears.find(s => s.label === sourceYearSelect.value)?.startYear || 0));
-        targetYearSelect.value = nextYear ? nextYear.label : (sortedYears.find(y => y.label !== sourceYearSelect.value)?.label || sortedYears[0]?.label || '');
-    }
-
-    populatePromotionSourceClasses();
-    loadPromotionRoster();
-};
-
-const populatePromotionSourceClasses = () => {
-    const sourceYear = document.getElementById('promote-source-year')?.value || getActiveAcademicYearLabel();
-    const sourceClassSelect = document.getElementById('promote-source-class');
-    if (!sourceClassSelect) return;
-    const currentVal = sourceClassSelect.value || 'all';
-
-    const yearClasses = getClassesForYear(sourceYear);
-    let opts = `<option value="all">All Classes</option>`;
-    yearClasses.forEach(c => {
-        opts += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
-    });
-    sourceClassSelect.innerHTML = opts;
-    if (currentVal === 'all' || yearClasses.includes(currentVal)) {
-        sourceClassSelect.value = currentVal;
-    } else {
-        sourceClassSelect.value = 'all';
-    }
-};
-
-const updatePromotionMetrics = (draft = promotionDraft) => {
-    const totalEl = document.getElementById('promote-metric-total');
-    const promotedEl = document.getElementById('promote-metric-promoted');
-    const retainedEl = document.getElementById('promote-metric-retained');
-    const graduatedEl = document.getElementById('promote-metric-graduated');
-    const selectedBadge = document.getElementById('promote-selected-count-badge');
-
-    const total = draft.length;
-    const selectedList = draft.filter(item => item.selected);
-    const promoted = selectedList.filter(item => item.decision === 'promoted').length;
-    const retained = selectedList.filter(item => item.decision === 'retained').length;
-    const graduated = selectedList.filter(item => item.decision === 'graduated').length;
-
-    if (totalEl) totalEl.textContent = String(total);
-    if (promotedEl) promotedEl.textContent = String(promoted);
-    if (retainedEl) retainedEl.textContent = String(retained);
-    if (graduatedEl) graduatedEl.textContent = String(graduated);
-    if (selectedBadge) selectedBadge.textContent = `${selectedList.length} of ${total} students selected`;
-};
-
-const renderPromotionTable = () => {
-    const container = document.getElementById('promote-table-container');
-    if (!container) return;
-
-    const allSelected = promotionDraft.length > 0 && promotionDraft.every(item => item.selected);
-
-    let html = `
-    <table class="w-full text-sm text-left whitespace-nowrap">
-        <thead class="bg-gray-50 text-gray-700 text-xs font-bold uppercase tracking-wider border-b border-gray-200">
-            <tr>
-                <th class="p-3 w-10 text-center">
-                    <input type="checkbox" id="promote-select-all" class="w-4 h-4 text-indigo-600 rounded cursor-pointer" ${allSelected ? 'checked' : ''}>
-                </th>
-                <th class="p-3 w-12 text-center">Sl</th>
-                <th class="p-3 w-14">Photo</th>
-                <th class="p-3">Adm.No</th>
-                <th class="p-3">Student Name</th>
-                <th class="p-3">Current Class</th>
-                <th class="p-3 text-center">Progression Decision</th>
-                <th class="p-3">Destination Class (Next Year)</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200 bg-white">`;
-
-    promotionDraft.forEach((item, index) => {
-        const photoUrl = item.photo;
-        const isPromoted = item.decision === 'promoted';
-        const isRetained = item.decision === 'retained';
-        const isGraduated = item.decision === 'graduated';
-
-        html += `
-        <tr class="hover:bg-indigo-50/30 transition ${item.selected ? 'bg-white' : 'bg-gray-50/50 opacity-60'}" data-student-id="${escapeHtml(item.studentId)}">
-            <td class="p-3 text-center">
-                <input type="checkbox" class="promo-row-select w-4 h-4 text-indigo-600 rounded cursor-pointer" data-id="${escapeHtml(item.studentId)}" ${item.selected ? 'checked' : ''}>
-            </td>
-            <td class="p-3 text-center font-bold text-gray-400 font-mono text-xs">${index + 1}</td>
-            <td class="p-3">
-                <div class="w-9 h-9 rounded-full overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 shadow-inner">
-                    ${photoUrl ? `<img src="${photoUrl}" class="w-full h-full object-cover">` : `<i class="fas fa-user text-slate-400 text-xs"></i>`}
-                </div>
-            </td>
-            <td class="p-3 font-mono font-bold text-gray-600 text-xs">${escapeHtml(item.adm || '-')}</td>
-            <td class="p-3 font-bold text-gray-900">${escapeHtml(item.name || '-')}</td>
-            <td class="p-3 font-semibold text-gray-700">${escapeHtml(item.sourceClass || '--')}</td>
-            <td class="p-3 text-center">
-                <div class="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-50 shadow-2xs">
-                    <button type="button" class="promo-decision-btn px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${isPromoted ? 'bg-emerald-600 text-white shadow-xs' : 'text-gray-600 hover:text-emerald-700'}" data-id="${escapeHtml(item.studentId)}" data-decision="promoted">
-                        <i class="fas fa-arrow-up text-[10px]"></i> Pass
-                    </button>
-                    <button type="button" class="promo-decision-btn px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${isRetained ? 'bg-amber-600 text-white shadow-xs' : 'text-gray-600 hover:text-amber-700'}" data-id="${escapeHtml(item.studentId)}" data-decision="retained">
-                        <i class="fas fa-redo text-[10px]"></i> Retain
-                    </button>
-                    <button type="button" class="promo-decision-btn px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${isGraduated ? 'bg-slate-700 text-white shadow-xs' : 'text-gray-600 hover:text-slate-700'}" data-id="${escapeHtml(item.studentId)}" data-decision="graduated">
-                        <i class="fas fa-user-graduate text-[10px]"></i> Graduated
-                    </button>
-                </div>
-            </td>
-            <td class="p-3">
-                <div class="flex items-center gap-2">
-                    <input type="text" class="promo-target-class-input p-1.5 border rounded-lg text-xs font-bold bg-white text-gray-800 w-36 border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" data-id="${escapeHtml(item.studentId)}" value="${escapeHtml(item.targetClass || '')}" placeholder="Target Class">
-                </div>
-            </td>
-        </tr>`;
-    });
-
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-};
-
-const loadPromotionRoster = () => {
-    const sourceYear = document.getElementById('promote-source-year')?.value || getActiveAcademicYearLabel();
-    const sourceClass = document.getElementById('promote-source-class')?.value || 'all';
-    const container = document.getElementById('promote-table-container');
-    const emptyState = document.getElementById('promote-table-empty-state');
-    const actionBar = document.getElementById('promote-action-bar');
-    const searchTerm = (document.getElementById('promote-search-input')?.value || '').toLowerCase().trim();
-
-    if (!container || !emptyState) return;
-
-    const yearStudents = getStudentsForYear(sourceYear);
-    let filteredStudents = yearStudents;
-
-    if (sourceClass !== 'all') {
-        filteredStudents = filteredStudents.filter(s => s.class === sourceClass);
-    }
-    if (searchTerm) {
-        filteredStudents = filteredStudents.filter(s => 
-            (s.name && s.name.toLowerCase().includes(searchTerm)) || 
-            (s.adm && String(s.adm).toLowerCase().includes(searchTerm))
-        );
-    }
-
-    if (filteredStudents.length === 0) {
-        emptyState.classList.remove('hidden');
-        container.classList.add('hidden');
-        if (actionBar) actionBar.classList.add('hidden');
-        updatePromotionMetrics([]);
-        return;
-    }
-
-    emptyState.classList.add('hidden');
-    container.classList.remove('hidden');
-    if (actionBar) actionBar.classList.remove('hidden');
-
-    const existingDraftMap = new Map(promotionDraft.map(item => [item.studentId, item]));
-
-    promotionDraft = filteredStudents.map((s) => {
-        const existing = existingDraftMap.get(s.id);
-        const sourceStudentClass = s.class || '';
-        const suggested = suggestNextClass(sourceStudentClass);
-        const isSeniorOrGrad = sourceStudentClass.toUpperCase() === 'GRADUATED' || suggested === 'GRADUATED';
-        const defaultDecision = isSeniorOrGrad ? 'graduated' : 'promoted';
-        const defaultTargetClass = defaultDecision === 'graduated' ? 'GRADUATED' : suggested;
-
-        return {
-            studentId: s.id,
-            name: s.name || '',
-            adm: s.adm || '',
-            photo: s.photo || s.profile?.photo || '',
-            gender: s.gender || '',
-            sourceClass: sourceStudentClass,
-            selected: existing ? existing.selected : true,
-            decision: existing ? existing.decision : defaultDecision,
-            suggestedClass: suggested,
-            targetClass: existing ? existing.targetClass : defaultTargetClass
-        };
-    });
-
-    renderPromotionTable();
-    updatePromotionMetrics(promotionDraft);
-};
-
-// Fast Batch Actions for Promotion
-document.getElementById('promote-set-all-pass-btn')?.addEventListener('click', () => {
-    promotionDraft.forEach(item => {
-        item.decision = 'promoted';
-        item.targetClass = item.suggestedClass || suggestNextClass(item.sourceClass);
-    });
-    renderPromotionTable();
-    updatePromotionMetrics();
-});
-
-document.getElementById('promote-set-all-retain-btn')?.addEventListener('click', () => {
-    promotionDraft.forEach(item => {
-        item.decision = 'retained';
-        item.targetClass = item.sourceClass;
-    });
-    renderPromotionTable();
-    updatePromotionMetrics();
-});
-
-document.getElementById('promote-set-all-graduate-btn')?.addEventListener('click', () => {
-    promotionDraft.forEach(item => {
-        item.decision = 'graduated';
-        item.targetClass = 'GRADUATED';
-    });
-    renderPromotionTable();
-    updatePromotionMetrics();
-});
-
-document.getElementById('promote-source-year')?.addEventListener('change', () => {
-    populatePromotionSourceClasses();
-    loadPromotionRoster();
-});
-document.getElementById('promote-source-class')?.addEventListener('change', loadPromotionRoster);
-document.getElementById('promote-target-year')?.addEventListener('change', () => {
-    updatePromotionMetrics();
-});
-document.getElementById('promote-search-input')?.addEventListener('input', loadPromotionRoster);
-
-// Roster Table Event Delegation
-document.getElementById('promote-table-container')?.addEventListener('click', (e) => {
-    if (e.target.id === 'promote-select-all') {
-        const checked = e.target.checked;
-        promotionDraft.forEach(item => item.selected = checked);
-        renderPromotionTable();
-        updatePromotionMetrics();
-        return;
-    }
-
-    const rowCheckbox = e.target.closest('.promo-row-select');
-    if (rowCheckbox) {
-        const studentId = rowCheckbox.dataset.id;
-        const item = promotionDraft.find(i => i.studentId === studentId);
-        if (item) {
-            item.selected = rowCheckbox.checked;
-            updatePromotionMetrics();
-            const row = rowCheckbox.closest('tr');
-            if (row) {
-                row.classList.toggle('opacity-60', !item.selected);
-                row.classList.toggle('bg-gray-50/50', !item.selected);
-            }
-        }
-        return;
-    }
-
-    const decisionBtn = e.target.closest('.promo-decision-btn');
-    if (decisionBtn) {
-        const studentId = decisionBtn.dataset.id;
-        const decision = decisionBtn.dataset.decision;
-        const item = promotionDraft.find(i => i.studentId === studentId);
-        if (item) {
-            item.decision = decision;
-            if (decision === 'promoted') {
-                item.targetClass = item.suggestedClass || suggestNextClass(item.sourceClass);
-            } else if (decision === 'retained') {
-                item.targetClass = item.sourceClass;
-            } else if (decision === 'graduated') {
-                item.targetClass = 'GRADUATED';
-            }
-            renderPromotionTable();
-            updatePromotionMetrics();
-        }
-        return;
-    }
-});
-
-document.getElementById('promote-table-container')?.addEventListener('input', (e) => {
-    const input = e.target.closest('.promo-target-class-input');
-    if (input) {
-        const studentId = input.dataset.id;
-        const item = promotionDraft.find(i => i.studentId === studentId);
-        if (item) {
-            item.targetClass = input.value.trim().toUpperCase();
-        }
-    }
-});
-
-// Bulk Promotion Confirmation and Execution
-document.getElementById('btn-open-promote-confirm')?.addEventListener('click', () => {
-    if (!requirePermission('students.manage')) return;
-    const sourceYear = document.getElementById('promote-source-year')?.value || '';
-    const targetYear = document.getElementById('promote-target-year')?.value || '';
-
-    if (!sourceYear || !targetYear) {
-        return alert('Please select both Source Academic Year and Target Academic Year.');
-    }
-    if (sourceYear === targetYear) {
-        return alert('Target Academic Year must be different from Source Academic Year.');
-    }
-
-    const selectedList = promotionDraft.filter(item => item.selected);
-    if (selectedList.length === 0) {
-        return alert('Please select at least one student to promote.');
-    }
-
-    const promoted = selectedList.filter(item => item.decision === 'promoted').length;
-    const retained = selectedList.filter(item => item.decision === 'retained').length;
-    const graduated = selectedList.filter(item => item.decision === 'graduated').length;
-
-    document.getElementById('confirm-promo-source-year').textContent = sourceYear;
-    document.getElementById('confirm-promo-target-year').textContent = targetYear;
-    document.getElementById('confirm-promo-promoted-count').textContent = String(promoted);
-    document.getElementById('confirm-promo-retained-count').textContent = String(retained);
-    document.getElementById('confirm-promo-graduated-count').textContent = String(graduated);
-
-    const popup = document.getElementById('promotion-confirm-popup');
-    if (popup) {
-        popup.classList.remove('hidden');
-        popup.classList.add('flex');
-    }
-});
-
-document.getElementById('promotion-confirm-cancel-btn')?.addEventListener('click', () => {
-    document.getElementById('promotion-confirm-popup')?.classList.add('hidden');
-    document.getElementById('promotion-confirm-popup')?.classList.remove('flex');
-});
-
-document.getElementById('promotion-confirm-execute-btn')?.addEventListener('click', async () => {
-    if (!requirePermission('students.manage')) return;
-    const executeBtn = document.getElementById('promotion-confirm-execute-btn');
-    const sourceYear = document.getElementById('promote-source-year')?.value || '';
-    const targetYear = document.getElementById('promote-target-year')?.value || '';
-    const selectedList = promotionDraft.filter(item => item.selected);
-
-    if (!selectedList.length) return alert('No students selected for promotion.');
-
-    try {
-        if (executeBtn) {
-            executeBtn.disabled = true;
-            executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> <span>Committing...</span>';
-        }
-
-        const nowIso = new Date().toISOString();
-        const operations = [];
-        const newClassesToSync = new Set();
-
-        selectedList.forEach((item) => {
-            const student = rawStudents.find(s => s.id === item.studentId) || {};
-            const existingHistory = student.academicYears || {};
-            const targetClassVal = item.targetClass || item.sourceClass;
-            const targetStatusVal = item.decision === 'graduated' ? 'Graduated' : 'Active';
-            const sourceStatusVal = item.decision === 'promoted' ? 'Promoted' : (item.decision === 'retained' ? 'Retained' : 'Graduated');
-
-            if (targetClassVal && targetClassVal !== 'GRADUATED') {
-                newClassesToSync.add(targetClassVal);
-            }
-
-            const updatedHistory = {
-                ...existingHistory,
-                [sourceYear]: {
-                    class: item.sourceClass,
-                    status: sourceStatusVal,
-                    decision: item.decision,
-                    updatedAt: nowIso
-                },
-                [targetYear]: {
-                    class: targetClassVal,
-                    status: targetStatusVal,
-                    decision: item.decision === 'retained' ? 'Retained' : 'Active',
-                    updatedAt: nowIso
-                }
-            };
-
-            const masterUpdate = {
-                academicYear: targetYear,
-                class: targetClassVal,
-                studentClass: targetClassVal,
-                status: targetStatusVal,
-                academicYears: updatedHistory,
-                updatedAt: nowIso
-            };
-
-            // 1. Update Master Student Document
-            operations.push((batch) => {
-                batch.update(doc(db, `${BASE_PATH}/students`, item.studentId), masterUpdate);
-            });
-
-            // 2. Set Target Academic Year Enrollment Record
-            operations.push((batch) => {
-                batch.set(
-                    getEnrollmentRef(targetYear, item.studentId),
-                    buildEnrollmentPayload(item.studentId, {
-                        ...student,
-                        ...masterUpdate,
-                        class: targetClassVal,
-                        academicYear: targetYear
-                    }),
-                    { merge: true }
-                );
-            });
-
-            // 3. Update Source Academic Year Historical Enrollment Record
-            operations.push((batch) => {
-                batch.set(
-                    getEnrollmentRef(sourceYear, item.studentId),
-                    buildEnrollmentPayload(item.studentId, {
-                        ...student,
-                        class: item.sourceClass,
-                        status: sourceStatusVal,
-                        academicYear: sourceYear
-                    }),
-                    { merge: true }
-                );
-            });
-        });
-
-        await runBatchedWrites(operations);
-
-        // Ensure newly formed classes are in target year classes list
-        if (newClassesToSync.size > 0) {
-            academicYears = academicYears.map(year => {
-                if (year.label !== targetYear) return year;
-                const existing = Array.isArray(year.classes) ? year.classes : [];
-                return {
-                    ...year,
-                    classes: sortClassLabels([...new Set([...existing, ...newClassesToSync])])
-                };
-            });
-            await persistAcademicYears();
-        }
-
-        await logAuditEvent({
-            category: 'student',
-            action: 'students.bulk_promoted',
-            entityType: 'academicYear',
-            entityId: targetYear,
-            message: `Promoted ${selectedList.length} students from ${sourceYear} to ${targetYear}.`,
-            metadata: {
-                sourceYear,
-                targetYear,
-                count: selectedList.length
-            }
-        });
-
-        document.getElementById('promotion-confirm-popup')?.classList.add('hidden');
-        document.getElementById('promotion-confirm-popup')?.classList.remove('flex');
-
-        showToast(`Successfully promoted ${selectedList.length} students into ${targetYear}! Historical records preserved.`, 'success');
-
-        promotionDraft = [];
-        loadPromotionRoster();
-        renderAcademicYears();
-    } catch (err) {
-        console.error('Failed to execute bulk promotion:', err);
-        alert('Failed to execute bulk promotion: ' + err.message);
-    } finally {
-        if (executeBtn) {
-            executeBtn.disabled = false;
-            executeBtn.innerHTML = '<i class="fas fa-check mr-1.5"></i> <span>Confirm & Commit Promotion</span>';
-        }
-    }
-});
-
 // ============================================================================
 // --- 3.2 STUDENT CONTINUITY & RE-ADMISSION MANAGEMENT SUBSYSTEM ---
 // ============================================================================
@@ -4133,7 +3647,7 @@ const populateContinuityClassDropdown = () => {
 
     const activeClasses = getClassesForActiveYear();
     const currentVal = classSelect.value;
-    classSelect.innerHTML = `<option value="">Select Class...</option>` +
+    classSelect.innerHTML = `<option value="">All Classes</option>` +
         activeClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
     if (activeClasses.includes(currentVal)) classSelect.value = currentVal;
 
@@ -4145,42 +3659,104 @@ const populateContinuityClassDropdown = () => {
     if (departureClasses.includes(currentFilterVal) || currentFilterVal === 'all') classFilter.value = currentFilterVal;
 };
 
-const populateContinuityStudentDropdown = (selectedClass) => {
-    const studentSelect = document.getElementById('continuity-student-select');
-    const previewWrap = document.getElementById('continuity-student-preview');
-    if (!studentSelect) return;
+const filterContinuityStudentSuggestions = (term) => {
+    const suggestionsBox = document.getElementById('continuity-student-suggestions');
+    const clearBtn = document.getElementById('continuity-clear-search-btn');
+    if (!suggestionsBox) return;
 
-    if (!selectedClass) {
-        studentSelect.innerHTML = '<option value="">Choose Class First</option>';
-        studentSelect.disabled = true;
-        if (previewWrap) previewWrap.classList.add('hidden');
-        continuitySelectedStudent = null;
+    const lowerTerm = (term || '').trim().toLowerCase();
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !lowerTerm);
+    }
+
+    if (!lowerTerm) {
+        suggestionsBox.classList.add('hidden');
+        suggestionsBox.innerHTML = '';
         return;
     }
 
-    const activeClassStudents = (getStudentsForActiveYear() || []).filter(s => {
-        return s.class === selectedClass && normalizeStudentStatus(s.status) !== 'Discontinued';
+    const selectedClass = document.getElementById('continuity-class-select')?.value || '';
+    const activeStudents = (getStudentsForActiveYear() || []).filter(s => {
+        const notDiscontinued = normalizeStudentStatus(s.status) !== 'Discontinued';
+        const classMatch = !selectedClass || s.class === selectedClass;
+        return notDiscontinued && classMatch;
     });
 
-    activeClassStudents.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const matching = activeStudents.filter(s => {
+        const nameMatch = (s.name || '').toLowerCase().includes(lowerTerm);
+        const admMatch = String(s.adm || '').toLowerCase().includes(lowerTerm);
+        const rollMatch = String(s.rollNo || s.roll || '').toLowerCase().includes(lowerTerm);
+        const phoneMatch = String(s.phone || s.mobile || '').toLowerCase().includes(lowerTerm);
+        return nameMatch || admMatch || rollMatch || phoneMatch;
+    }).slice(0, 30);
 
-    if (activeClassStudents.length === 0) {
-        studentSelect.innerHTML = '<option value="">No Active Students in this Class</option>';
-        studentSelect.disabled = true;
-        if (previewWrap) previewWrap.classList.add('hidden');
-        continuitySelectedStudent = null;
+    matching.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (matching.length === 0) {
+        suggestionsBox.innerHTML = `<div class="p-3 text-center text-xs text-slate-400 italic">No matching active students found</div>`;
+        suggestionsBox.classList.remove('hidden');
         return;
     }
 
-    studentSelect.disabled = false;
-    studentSelect.innerHTML = '<option value="">Select Student to Discontinue...</option>' +
-        activeClassStudents.map(s => {
-            const admLabel = s.adm ? ` (Adm: ${s.adm})` : '';
-            return `<option value="${s.id}">${escapeHtml(s.name)}${admLabel}</option>`;
-        }).join('');
+    suggestionsBox.innerHTML = matching.map(s => {
+        const photoUrl = resolveSafePhotoUrl(s.photoUrl || s.photo);
+        return `
+            <div class="continuity-sugg-item p-2.5 hover:bg-indigo-50/80 cursor-pointer flex items-center justify-between gap-3 text-sm transition" data-id="${s.id}">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <img src="${escapeHtml(photoUrl)}" class="w-8 h-8 rounded-full object-cover border border-slate-200 bg-white shrink-0">
+                    <div class="min-w-0">
+                        <div class="font-bold text-slate-900 text-xs truncate">${escapeHtml(s.name)}</div>
+                        <div class="text-[11px] text-slate-500 font-mono">Adm: <b class="text-slate-700">${escapeHtml(s.adm || '--')}</b> · Class: <b class="text-slate-700">${escapeHtml(s.class || '--')}</b></div>
+                    </div>
+                </div>
+                <i class="fas fa-chevron-right text-xs text-slate-300 shrink-0"></i>
+            </div>
+        `;
+    }).join('');
 
-    if (previewWrap) previewWrap.classList.add('hidden');
-    continuitySelectedStudent = null;
+    suggestionsBox.classList.remove('hidden');
+
+    suggestionsBox.querySelectorAll('.continuity-sugg-item').forEach(item => {
+        item.addEventListener('click', () => {
+            selectContinuityStudent(item.dataset.id);
+        });
+    });
+};
+
+const selectContinuityStudent = (studentId) => {
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    const searchInput = document.getElementById('continuity-student-search-input');
+    const hiddenId = document.getElementById('continuity-selected-student-id');
+    const suggestionsBox = document.getElementById('continuity-student-suggestions');
+    const clearBtn = document.getElementById('continuity-clear-search-btn');
+
+    if (!student) return;
+
+    if (hiddenId) hiddenId.value = student.id;
+    if (searchInput) searchInput.value = `${student.name} (Adm: ${student.adm || '--'})`;
+    if (clearBtn) clearBtn.classList.remove('hidden');
+    if (suggestionsBox) {
+        suggestionsBox.classList.add('hidden');
+        suggestionsBox.innerHTML = '';
+    }
+
+    updateContinuityStudentPreview(student.id);
+};
+
+const clearContinuityStudentSelection = () => {
+    const searchInput = document.getElementById('continuity-student-search-input');
+    const hiddenId = document.getElementById('continuity-selected-student-id');
+    const suggestionsBox = document.getElementById('continuity-student-suggestions');
+    const clearBtn = document.getElementById('continuity-clear-search-btn');
+
+    if (searchInput) searchInput.value = '';
+    if (hiddenId) hiddenId.value = '';
+    if (clearBtn) clearBtn.classList.add('hidden');
+    if (suggestionsBox) {
+        suggestionsBox.classList.add('hidden');
+        suggestionsBox.innerHTML = '';
+    }
+    updateContinuityStudentPreview('');
 };
 
 const updateContinuityStudentPreview = (studentId) => {
@@ -4220,19 +3796,19 @@ const updateContinuityStudentPreview = (studentId) => {
 
 const handleDiscontinueStudent = async (e) => {
     e.preventDefault();
-    const studentSelect = document.getElementById('continuity-student-select');
+    const hiddenStudentIdInput = document.getElementById('continuity-selected-student-id');
     const exitDateInput = document.getElementById('continuity-exit-date');
     const exitReasonInput = document.getElementById('continuity-exit-reason');
     const generateTcCheckbox = document.getElementById('continuity-generate-tc');
     const submitBtn = document.getElementById('execute-discontinue-btn');
 
-    const studentId = studentSelect?.value;
+    const studentId = hiddenStudentIdInput?.value;
     const exitDate = exitDateInput?.value;
     const exitReason = (exitReasonInput?.value || '').trim();
     const generateTc = !!generateTcCheckbox?.checked;
 
     if (!studentId) {
-        alert('Please select a student to discontinue.');
+        alert('Please search and select a student to discontinue.');
         return;
     }
     if (!exitDate) {
@@ -4351,9 +3927,7 @@ const handleDiscontinueStudent = async (e) => {
 
         exitReasonInput.value = '';
         generateTcCheckbox.checked = false;
-        studentSelect.value = '';
-        updateContinuityStudentPreview('');
-        populateContinuityStudentDropdown(document.getElementById('continuity-class-select').value);
+        clearContinuityStudentSelection();
 
         renderContinuityPage();
         refreshAcademicYearScopedData();
@@ -4769,11 +4343,29 @@ const openContinuityHistoryModal = (studentId) => {
 };
 
 // Wire Continuity Event Listeners
-document.getElementById('continuity-class-select')?.addEventListener('change', (e) => {
-    populateContinuityStudentDropdown(e.target.value);
+const continuitySearchInput = document.getElementById('continuity-student-search-input');
+continuitySearchInput?.addEventListener('input', (e) => {
+    filterContinuityStudentSuggestions(e.target.value);
 });
-document.getElementById('continuity-student-select')?.addEventListener('change', (e) => {
-    updateContinuityStudentPreview(e.target.value);
+continuitySearchInput?.addEventListener('focus', (e) => {
+    if (e.target.value.trim()) {
+        filterContinuityStudentSuggestions(e.target.value);
+    }
+});
+document.getElementById('continuity-clear-search-btn')?.addEventListener('click', () => {
+    clearContinuityStudentSelection();
+});
+document.getElementById('continuity-class-select')?.addEventListener('change', () => {
+    const val = continuitySearchInput?.value || '';
+    if (val.trim()) {
+        filterContinuityStudentSuggestions(val);
+    }
+});
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('continuity-student-search-input')?.closest('.relative');
+    if (container && !container.contains(e.target)) {
+        document.getElementById('continuity-student-suggestions')?.classList.add('hidden');
+    }
 });
 document.getElementById('continuity-exit-date')?.addEventListener('change', () => {
     if (continuitySelectedStudent) updateContinuityStudentPreview(continuitySelectedStudent.id);
@@ -4842,7 +4434,7 @@ document.getElementById('class-list-container').addEventListener('click', e => {
     if(delBtn) {
         if(!requirePermission('classes.manage')) return;
         const cName = delBtn.dataset.class;
-        if(!confirm(`ക്ലാസ്സ് '${cName}' പൂർണ്ണമായും ഡിലീറ്റ് ചെയ്യട്ടെ? അതിലുള്ള കുട്ടികളും ഡിലീറ്റ് ആകും.`)) return;
+        if(!confirm(`Permanently delete class '${cName}'? Enrolled students in this class will also be deleted.`)) return;
         const toDelete = students.filter(s => s.class === cName).map(s => s.id);
         deleteStudentsAndDependencies(toDelete)
             .then(async () => {
@@ -4861,7 +4453,7 @@ document.getElementById('edit-class-update').addEventListener('click', async () 
     if(!requirePermission('classes.manage')) return;
     const newName = document.getElementById('edit-class-name').value.trim().toUpperCase();
     if(newName && newName !== editingClassName) {
-        if(!confirm(`ക്ലാസ്സിന്റെ പേര് മാറ്റട്ടെ?`)) return;
+        if(!confirm("Rename class?")) return;
         const batch = writeBatch(db); students.filter(s => s.class === editingClassName).forEach(s => { batch.update(doc(db, `${BASE_PATH}/students`, s.id), { class: newName }); });
         await batch.commit();
         await syncActiveAcademicYearClasses(classes.map((className) => className === editingClassName ? newName : className), { replace: true });
@@ -4991,7 +4583,7 @@ document.getElementById('student-groups-list').addEventListener('click', e => {
     const delBtn = e.target.closest('.del-grp'), editBtn = e.target.closest('.edit-grp');
     if(delBtn) {
         if(!requirePermission('groups.manage')) return;
-        if(!confirm("ഈ ഗ്രൂപ്പ് പൂർണ്ണമായും ഡിലീറ്റ് ചെയ്യട്ടെ?")) return;
+        if(!confirm("Permanently delete this student group?")) return;
         deleteDoc(doc(db, `${BASE_PATH}/studentGroups`, delBtn.dataset.id));
         logAuditEvent({ category: 'group', action: 'group.delete', entityType: 'studentGroup', entityId: delBtn.dataset.id, message: 'Student group deleted.' });
     }
@@ -5035,7 +4627,7 @@ document.getElementById('edit-group-update').onclick = async () => {
     const newMem = [...editGroupWorkingMembers];
     if(newMem.length < 2 && newMem.length > 0) return alert("Group must have at least 2 members. Add more or delete group.");
 
-    if(!confirm("ഈ ഗ്രൂപ്പിലെ മാറ്റങ്ങൾ സേവ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Save changes to this group?")) return;
 
     if(newMem.length === 0) { await deleteDoc(doc(db, `${BASE_PATH}/studentGroups`, gid)); await logAuditEvent({ category: 'group', action: 'group.delete', entityType: 'studentGroup', entityId: gid, message: 'Student group removed during edit.' }); }
     else { await updateDoc(doc(db, `${BASE_PATH}/studentGroups`, gid), { fee: gfee, memberIds: newMem, updatedAt: Date.now() }); await logAuditEvent({ category: 'group', action: 'group.update', entityType: 'studentGroup', entityId: gid, message: 'Student group updated.' }); }
@@ -5070,7 +4662,7 @@ document.getElementById('create-group-btn').addEventListener('click', async () =
     const fee = parseFloat(document.getElementById('group-monthly-fee').value) || 0;
     if(selects.length < 2 || new Set(selects).size !== selects.length) return alert("Please select unique valid students from the suggestions.");
 
-    if(!confirm("പുതിയ ഗ്രൂപ്പ് ക്രിയേറ്റ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Create new student group?")) return;
 
     const nowTs = Date.now();
     const groupDoc = await addDoc(collection(db, `${BASE_PATH}/studentGroups`), { academicYear: activeAcademicYear || currentAcademicYear, memberIds: selects, fee: fee, createdAt: nowTs, updatedAt: nowTs });
@@ -5489,7 +5081,7 @@ document.getElementById('save-result-schema-btn').addEventListener('click', asyn
     if (!classLabel) return alert('Please add classes first, then configure result schema.');
     const subjects = parseResultSubjects(document.getElementById('result-subjects-input').value);
     if (!subjects.length) return alert('Please provide at least one valid subject.');
-    if(!confirm("Result schema സേവ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Save result schema?")) return;
     const payload = {
         academicYear: getActiveAcademicYearLabel(),
         classLabel,
@@ -6114,7 +5706,7 @@ document.getElementById('conc-save').onclick = async () => {
     if(!requirePermission('concessions.manage')) return;
     const amt = parseFloat(document.getElementById('conc-fee-amount').value);
     if(isNaN(amt) || amt < 0) return alert("Enter valid amount");
-    if(!confirm("ഈ കൺസെഷൻ ഡാറ്റാബേസിൽ സേവ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Save this fee concession to database?")) return;
     const studentId = document.getElementById('conc-student-id').value;
     await updateDoc(doc(db, `${BASE_PATH}/students`, studentId), { concessionFee: amt, concessionAppliedAt: Date.now(), concessionUpdatedAt: Date.now() });
     await logAuditEvent({ category: 'fee', action: 'concession.save', entityType: 'student', entityId: studentId, message: `Concession saved: ₹${amt}.` });
@@ -6127,7 +5719,7 @@ document.getElementById('conc-remove').onclick = async () => {
 };
 window.deleteConcession = async (studentId) => {
     if(!requirePermission('concessions.manage')) return;
-    if(!confirm("ഈ വിദ്യാർത്ഥിയുടെ കൺസെഷൻ ഒഴിവാക്കട്ടെ?")) return;
+    if(!confirm("Remove fee concession for this student?")) return;
     await updateDoc(doc(db, `${BASE_PATH}/students`, studentId), { concessionFee: null, concessionUpdatedAt: Date.now() });
     await logAuditEvent({ category: 'fee', action: 'concession.remove', entityType: 'student', entityId: studentId, message: 'Concession removed.' });
 };
@@ -6157,7 +5749,7 @@ document.getElementById('add-adv-fee-btn').addEventListener('click', () => {
         const targetCls = document.getElementById('adv-fee-specific-class').value, amt = parseFloat(document.getElementById('adv-fee-specific-amt').value);
         if(!targetCls || isNaN(amt)) return alert("Select class and enter valid amount"); feeData.targetClass = targetCls; feeData.amount = amt;
     }
-    if(!confirm("പുതിയ ഫീ ഐറ്റം ആഡ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Add new fee item?")) return;
     setDoc(doc(db, `${BASE_PATH}/settings`, 'config'), {feeItems: [...feeItems, feeData]}, {merge:true});
     logAuditEvent({ category: 'fee', action: 'fee.create', entityType: 'feeItem', entityId: feeData.key, message: `Fee item created: ${name}.` });
     document.getElementById('adv-fee-name').value = ''; document.getElementById('adv-fee-global-amt').value = ''; alert("Advanced Fee Created!");
@@ -6256,7 +5848,7 @@ document.getElementById('save-fee-config-btn').addEventListener('click', async (
     const notifyMode = document.getElementById('fee-notify-mode')?.value || 'month_start';
     const notifyDaysBefore = Math.min(28, Math.max(1, parseInt(document.getElementById('fee-notify-days-before')?.value, 10) || 5));
 
-    if(!confirm("ഡിഫോൾട്ട് ഫീസ് സെറ്റിംഗ്സ് സേവ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Save default fee settings?")) return;
     await setDoc(doc(db, `${BASE_PATH}/settings`, 'config'), {
         defaultFee: parseInt(document.getElementById('default-fee-input').value) || 0,
         feeStatusTitle: document.getElementById('fee-status-title-input').value,
@@ -6339,7 +5931,7 @@ const renderFeeItemsManagement = () => {
 document.getElementById('fee-items-management-container').addEventListener('click', e => {
     const delBtn = e.target.closest('.del-fee'), editBtn = e.target.closest('.edit-fee');
     if(delBtn) {
-        if(!confirm("ഈ ഫീ ഐറ്റം ഡിലീറ്റ് ചെയ്യട്ടെ?")) return;
+        if(!confirm("Delete this fee item?")) return;
         setDoc(doc(db, `${BASE_PATH}/settings`, 'config'), {feeItems: feeItems.filter(i => i.key !== delBtn.dataset.key)}, {merge:true});
     }
     if(editBtn) {
@@ -6380,7 +5972,7 @@ document.getElementById('e-fee-update').onclick = () => {
     const key = document.getElementById('e-fee-key').value, name = document.getElementById('e-fee-name').value.trim(), scope = document.getElementById('e-fee-scope').value;
     if(!name) return alert("Name is mandatory.");
 
-    if(!confirm("ഈ ഫീ ഐറ്റത്തിൽ വരുത്തിയ മാറ്റങ്ങൾ സേവ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Save changes to this fee item?")) return;
 
     let updatedFee = { key, name, type: 'custom', isVisible: true, scope, isReceiptMandatory: document.getElementById('e-fee-receipt-req').checked, academicYear: getActiveAcademicYearLabel() };
 
@@ -6403,7 +5995,7 @@ document.getElementById('e-fee-update').onclick = () => {
 // --- 8. WEBSITE BASIC INFO ---
 document.getElementById('save-web-info-btn').addEventListener('click', async () => {
     if(!requirePermission('website.manage')) return;
-    if(!confirm("വെബ്സൈറ്റ് വിവരങ്ങൾ സേവ് ചെയ്യട്ടെ?")) return;
+    if(!confirm("Save website information?")) return;
     const btn = document.getElementById('save-web-info-btn');
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
     btn.disabled = true;
@@ -6544,7 +6136,7 @@ const initNoticeUploadControls = () => {
                 updateNoticeImagePreviewUI(prefix, base64);
             } catch (err) {
                 console.error('Notice image compression failed:', err);
-                alert('ചിത്രം കമ്പ്രസ്സ് ചെയ്യാൻ കഴിഞ്ഞില്ല: ' + (err?.message || 'Error'));
+                alert('Unable to compress image: ' + (err?.message || 'Error'));
             } finally {
                 uploadBtn.disabled = false;
                 uploadBtn.innerHTML = originalLabel;
@@ -6603,11 +6195,11 @@ document.getElementById('add-notice-btn').onclick = () => {
     const dt = document.getElementById('new-notice-dt').value || new Date().toISOString().split('T')[0];
     const pinned = document.getElementById('new-notice-pin').checked;
     if (!heading && !txt && !image) {
-        alert("ദയവായി ഹെഡിംഗ്, വിവരണം (Description), അല്ലെങ്കിൽ ചിത്രം (Image) എന്നിവയിൽ ഏതെങ്കിലും ഒന്ന് നൽകുക.");
+        alert("Please provide at least a title, description, or image.");
         return;
     }
     if(dt) {
-        if(!confirm("പുതിയ അറിയിപ്പ് പ്രസിദ്ധീകരിക്കട്ടെ?")) return;
+        if(!confirm("Publish new notice?")) return;
         expandedNoticeIndexes.clear();
         webContent.notices.push(normalizeNoticePayload({ heading, text: txt, image, date: dt, pinned }));
         updateWebContent();
@@ -6619,7 +6211,7 @@ document.getElementById('add-notice-btn').onclick = () => {
         document.getElementById('new-notice-dt').value = new Date().toISOString().split('T')[0];
     }
 };
-window.deleteNotice = (idx) => { if(!requirePermission('website.manage')) return; if(!confirm("അറിയിപ്പ് ഡിലീറ്റ് ചെയ്യട്ടെ?")) return; expandedNoticeIndexes.clear(); webContent.notices.splice(idx, 1); updateWebContent(); logAuditEvent({ category: 'website', action: 'notice.delete', entityType: 'notice', entityId: String(idx), message: 'Website notice deleted.' }); };
+window.deleteNotice = (idx) => { if(!requirePermission('website.manage')) return; if(!confirm("Delete this notice?")) return; expandedNoticeIndexes.clear(); webContent.notices.splice(idx, 1); updateWebContent(); logAuditEvent({ category: 'website', action: 'notice.delete', entityType: 'notice', entityId: String(idx), message: 'Website notice deleted.' }); };
 window.editNotice = (idx) => {
     if(!requirePermission('website.manage')) return;
     const n = normalizeNoticePayload(webContent.notices[idx] || {}); document.getElementById('e-not-idx').value = idx;
@@ -6643,11 +6235,11 @@ document.getElementById('e-not-save').onclick = () => {
     const dt = document.getElementById('e-not-dt').value || new Date().toISOString().split('T')[0];
     const pinned = document.getElementById('e-not-pin').checked;
     if (!heading && !txt && !image) {
-        alert("ദയവായി ഹെഡിംഗ്, വിവരണം (Description), അല്ലെങ്കിൽ ചിത്രം (Image) എന്നിവയിൽ ഏതെങ്കിലും ഒന്ന് നൽകുക.");
+        alert("Please provide at least a title, description, or image.");
         return;
     }
     if(dt) {
-        if(!confirm("അറിയിപ്പിലെ മാറ്റങ്ങൾ സേവ് ചെയ്യട്ടെ?")) return;
+        if(!confirm("Save changes to this notice?")) return;
         expandedNoticeIndexes.clear();
         webContent.notices[idx] = normalizeNoticePayload({ heading, text: txt, image, date: dt, pinned }, webContent.notices[idx] || {});
         updateWebContent();
@@ -6752,7 +6344,7 @@ const initGalleryUploadControls = () => {
             if (clearBtn) clearBtn.classList.remove('hidden');
         } catch (err) {
             console.error('Gallery image compression failed:', err);
-            alert('ചിത്രം കമ്പ്രസ്സ് ചെയ്യാൻ കഴിഞ്ഞില്ല: ' + (err?.message || 'Error'));
+            alert('Unable to compress image: ' + (err?.message || 'Error'));
         } finally {
             uploadBtn.disabled = false;
             uploadBtn.innerHTML = '<i class="fas fa-upload mr-1"></i> Choose Photo';
@@ -6771,11 +6363,11 @@ const initGalleryUploadControls = () => {
         const order = Number.isFinite(parsedOrder) && parsedOrder > 0 ? parsedOrder : getNextGalleryOrder();
 
         if (!photoData) {
-            alert("ദയവായി ഒരു ചിത്രം തിരഞ്ഞെടുക്കുക.");
+            alert("Please select an image.");
             return;
         }
 
-        if (!confirm("ഗാലറിയിലേക്ക് ചിത്രം ആഡ് ചെയ്യട്ടെ?")) return;
+        if (!confirm("Add image to gallery?")) return;
         normalizeGalleryList();
         webContent.gallery.push({ url: photoData, order });
         updateWebContent();
@@ -6808,7 +6400,7 @@ const initGalleryUploadControls = () => {
             document.getElementById('edit-gal-preview').src = base64;
         } catch (err) {
             console.error('Edit gallery photo compression failed:', err);
-            alert('ചിത്രം കമ്പ്രസ്സ് ചെയ്യാൻ കഴിഞ്ഞില്ല.');
+            alert('Unable to compress image.');
         } finally {
             editChangeBtn.disabled = false;
             editChangeBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Change Photo';
@@ -6824,7 +6416,7 @@ const initGalleryUploadControls = () => {
         const order = Number.isFinite(newOrder) && newOrder > 0 ? newOrder : (webContent.gallery[idx].order || 50);
         const newData = document.getElementById('edit-gal-data')?.value;
 
-        if (!confirm("മാറ്റങ്ങൾ സേവ് ചെയ്യട്ടെ?")) return;
+        if (!confirm("Save changes?")) return;
         normalizeGalleryList();
         const updated = Object.assign({}, webContent.gallery[idx], { order });
         if (newData) {
@@ -6839,7 +6431,7 @@ const initGalleryUploadControls = () => {
     });
 };
 
-window.deleteGal = (idx) => { if(!requirePermission('website.manage')) return; if(!confirm("ചിത്രം ഡിലീറ്റ് ചെയ്യട്ടെ?")) return; normalizeGalleryList(); webContent.gallery.splice(idx, 1); updateWebContent(); logAuditEvent({ category: 'website', action: 'gallery.delete', entityType: 'gallery', entityId: String(idx), message: 'Gallery image deleted.' }); renderWebGallery(); };
+window.deleteGal = (idx) => { if(!requirePermission('website.manage')) return; if(!confirm("Delete this image?")) return; normalizeGalleryList(); webContent.gallery.splice(idx, 1); updateWebContent(); logAuditEvent({ category: 'website', action: 'gallery.delete', entityType: 'gallery', entityId: String(idx), message: 'Gallery image deleted.' }); renderWebGallery(); };
 
 window.editGal = (idx) => {
     if (!requirePermission('website.manage')) return;
@@ -8233,7 +7825,7 @@ onAuthStateChanged(auth, async (user) => {
                     photo: authorizedStaffAdmin.photo || ''
                 });
             } else if (!wantsResultsTab) {
-                alert("അനധികൃത പ്രവേശനം! നിങ്ങൾക്കീ പേജിൽ പ്രവേശിക്കാൻ അനുമതിയില്ല.");
+                alert("Unauthorized access! You do not have permission to view this page.");
                 await window.AppSession?.clearAll({ purgeClientData: true });
                 await signOut(auth);
                 window.location.href = 'index.html';
@@ -8522,7 +8114,7 @@ onAuthStateChanged(auth, async (user) => {
 
     } catch (error) {
         console.error("Auth Error:", error);
-        alert("സുരക്ഷാ പരിശോധനയിൽ പിഴവ് സംഭവിച്ചു.");
+        alert("Security verification error occurred.");
         window.location.href = 'index.html';
     }
 });
