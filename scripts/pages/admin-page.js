@@ -2640,20 +2640,22 @@ function handleExcelFile(file) {
 
                 // Row-level and field-level validation
                 const fieldStatuses = {};
-                const issues = [];
+                const omittedFields = [];
+                const fatalReasons = [];
 
                 // 2. Class (Auto mapped to selected class)
                 fieldStatuses.class = { status: 'valid', val: selectedBulkClass };
 
                 // 4. Student Name (Mandatory)
-                if (!rawName) {
+                const hasFatalError = !rawName;
+                if (hasFatalError) {
                     fieldStatuses.name = { status: 'error', val: '', reason: 'Name is mandatory' };
-                    issues.push('Missing Student Name');
+                    fatalReasons.push('Missing Student Name');
                 } else {
                     fieldStatuses.name = { status: 'valid', val: rawName.toUpperCase().trim() };
                 }
 
-                // 7. Gender (Mandatory)
+                // 7. Gender (Mandatory - defaults to Male if blank)
                 if (!genderRaw) {
                     fieldStatuses.gender = { status: 'blank', val: genderVal, note: 'Defaulted to Male' };
                 } else {
@@ -2672,57 +2674,80 @@ function handleExcelFile(file) {
                 // 8. Adm No
                 fieldStatuses.adm = admVal ? { status: 'valid', val: admVal } : { status: 'blank', val: '' };
 
-                // 9. DOB
-                if (rawDob && !dobVal) {
-                    fieldStatuses.dob = { status: 'error', val: String(rawDob), reason: 'Invalid date format' };
-                    issues.push('Invalid Date of Birth');
-                } else if (!dobVal) {
-                    fieldStatuses.dob = { status: 'blank', val: '' };
+                // 9. DOB (Optional: invalid format is omitted, does NOT block the student)
+                let cleanDob = '';
+                if (rawDob) {
+                    if (dobVal) {
+                        cleanDob = dobVal;
+                        fieldStatuses.dob = { status: 'valid', val: cleanDob };
+                    } else {
+                        fieldStatuses.dob = { status: 'error', val: String(rawDob), reason: 'Invalid date format (will be saved as blank)' };
+                        omittedFields.push('Date of Birth');
+                    }
                 } else {
-                    fieldStatuses.dob = { status: 'valid', val: dobVal };
+                    fieldStatuses.dob = { status: 'blank', val: '' };
                 }
 
-                // 10. Adm Date
-                if (rawAdmDate && !admDateVal) {
-                    fieldStatuses.admDate = { status: 'error', val: String(rawAdmDate), reason: 'Invalid date format' };
-                    issues.push('Invalid Admission Date');
-                } else if (!admDateVal) {
-                    fieldStatuses.admDate = { status: 'blank', val: '' };
+                // 10. Adm Date (Optional: invalid format is omitted, does NOT block the student)
+                let cleanAdmDate = '';
+                if (rawAdmDate) {
+                    if (admDateVal) {
+                        cleanAdmDate = admDateVal;
+                        fieldStatuses.admDate = { status: 'valid', val: cleanAdmDate };
+                    } else {
+                        fieldStatuses.admDate = { status: 'error', val: String(rawAdmDate), reason: 'Invalid date format (will be saved as blank)' };
+                        omittedFields.push('Admission Date');
+                    }
                 } else {
-                    fieldStatuses.admDate = { status: 'valid', val: admDateVal };
+                    fieldStatuses.admDate = { status: 'blank', val: '' };
                 }
 
                 // 11. Status
                 fieldStatuses.status = { status: 'valid', val: statusVal };
 
-                // 12. Aadhaar
-                if (adhaarVal && !/^\d{12}$/.test(adhaarVal.replace(/\s+/g, ''))) {
-                    fieldStatuses.adhaar = { status: 'error', val: adhaarVal, reason: 'Aadhaar must be 12 digits' };
-                    issues.push('Invalid Aadhaar Number format');
-                } else if (!adhaarVal) {
+                // 12. Aadhaar (Optional: invalid format is omitted, does NOT block the student)
+                let cleanAdhaar = '';
+                if (adhaarVal) {
+                    const digitsOnly = adhaarVal.replace(/\s+/g, '');
+                    if (/^\d{12}$/.test(digitsOnly)) {
+                        cleanAdhaar = digitsOnly;
+                        fieldStatuses.adhaar = { status: 'valid', val: cleanAdhaar };
+                    } else {
+                        fieldStatuses.adhaar = { status: 'error', val: adhaarVal, reason: 'Invalid Aadhaar format (must be 12 digits, will be saved as blank)' };
+                        omittedFields.push('Aadhaar');
+                    }
+                } else {
                     fieldStatuses.adhaar = { status: 'blank', val: '' };
-                } else {
-                    fieldStatuses.adhaar = { status: 'valid', val: adhaarVal };
                 }
 
-                // 13. Father Mobile
-                if (mobileVal && !/^\+?\d{7,15}$/.test(mobileVal.replace(/[\s-]/g, ''))) {
-                    fieldStatuses.mobile = { status: 'error', val: mobileVal, reason: 'Invalid mobile number' };
-                    issues.push('Invalid Father Phone Number');
-                } else if (!mobileVal) {
+                // 13. Father Mobile (Optional: invalid format is omitted, does NOT block the student)
+                let cleanMobile = '';
+                if (mobileVal) {
+                    const sanitizedMobile = mobileVal.replace(/[\s-]/g, '');
+                    if (/^\+?\d{7,15}$/.test(sanitizedMobile)) {
+                        cleanMobile = sanitizedMobile;
+                        fieldStatuses.mobile = { status: 'valid', val: cleanMobile };
+                    } else {
+                        fieldStatuses.mobile = { status: 'error', val: mobileVal, reason: 'Invalid mobile number (will be saved as blank)' };
+                        omittedFields.push('Father Mobile');
+                    }
+                } else {
                     fieldStatuses.mobile = { status: 'blank', val: '' };
-                } else {
-                    fieldStatuses.mobile = { status: 'valid', val: mobileVal };
                 }
 
-                // 14. Mother Mobile
-                if (motherMobileVal && !/^\+?\d{7,15}$/.test(motherMobileVal.replace(/[\s-]/g, ''))) {
-                    fieldStatuses.motherMobile = { status: 'error', val: motherMobileVal, reason: 'Invalid mother mobile' };
-                    issues.push('Invalid Mother Phone Number');
-                } else if (!motherMobileVal) {
-                    fieldStatuses.motherMobile = { status: 'blank', val: '' };
+                // 14. Mother Mobile (Optional: invalid format is omitted, does NOT block the student)
+                let cleanMotherMobile = '';
+                if (motherMobileVal) {
+                    const sanitizedMotherMobile = motherMobileVal.replace(/[\s-]/g, '');
+                    if (/^\+?\d{7,15}$/.test(sanitizedMotherMobile)) {
+                        cleanMotherMobile = sanitizedMotherMobile;
+                        fieldStatuses.motherMobile = { status: 'valid', val: cleanMotherMobile };
+                    } else {
+                        fieldStatuses.motherMobile = { status: 'error', val: motherMobileVal, reason: 'Invalid mobile number (will be saved as blank)' };
+                        omittedFields.push('Mother Mobile');
+                    }
                 } else {
-                    fieldStatuses.motherMobile = { status: 'valid', val: motherMobileVal };
+                    fieldStatuses.motherMobile = { status: 'blank', val: '' };
                 }
 
                 // 15. Address
@@ -2739,33 +2764,36 @@ function handleExcelFile(file) {
                     uid: uidVal,
                     father: fatherVal,
                     mother: motherVal.toUpperCase(),
-                    mobile: mobileVal,
-                    motherMobile: motherMobileVal,
+                    mobile: cleanMobile,
+                    motherMobile: cleanMotherMobile,
                     adm: admVal,
                     address: addressVal,
-                    dob: dobVal,
-                    admDate: admDateVal,
-                    adm_date: admDateVal,
-                    adhaar: adhaarVal,
+                    dob: cleanDob,
+                    admDate: cleanAdmDate,
+                    adm_date: cleanAdmDate,
+                    adhaar: cleanAdhaar,
                     samasthaId: samasthaVal,
                     photo: '',
                     fieldStatuses,
-                    issues,
-                    hasErrors: issues.length > 0,
+                    omittedFields,
+                    hasFatalError,
+                    fatalReasons,
+                    hasOmittedFields: omittedFields.length > 0,
+                    hasErrors: hasFatalError,
                     profile: {
-                        dob: dobVal,
+                        dob: cleanDob,
                         address: addressVal,
-                        adhaar: adhaarVal,
+                        adhaar: cleanAdhaar,
                         admNo: admVal,
-                        admDate: admDateVal,
-                        adm_date: admDateVal,
+                        admDate: cleanAdmDate,
+                        adm_date: cleanAdmDate,
                         samasthaId: samasthaVal,
                         photo: '',
                         uid: uidVal,
                         father: fatherVal,
                         mother: motherVal.toUpperCase(),
-                        mobile: mobileVal,
-                        motherMobile: motherMobileVal,
+                        mobile: cleanMobile,
+                        motherMobile: cleanMotherMobile,
                         status: statusVal
                     }
                 };
@@ -2775,13 +2803,16 @@ function handleExcelFile(file) {
                 studentObj.isDuplicate = !!existingMatch;
 
                 return studentObj;
-            }).filter(s => s.name || s.hasErrors); // Keep records that have at least some data
+            }).filter(s => s.name || s.hasFatalError); // Keep all records that have name or were explicitly submitted
 
             // Compute diagnostic summary statistics
             const totalCount = excelParsedData.length;
-            const issueCount = excelParsedData.filter(s => s.hasErrors).length;
-            const validCount = excelParsedData.filter(s => !s.hasErrors).length;
-            const mergeCount = excelParsedData.filter(s => s.isDuplicate).length;
+            const validStudents = excelParsedData.filter(s => !s.hasFatalError);
+            const fatalRows = excelParsedData.filter(s => s.hasFatalError);
+            const validCount = validStudents.length;
+            const fatalCount = fatalRows.length;
+            const totalOmittedFields = validStudents.reduce((acc, s) => acc + (s.omittedFields?.length || 0), 0);
+            const mergeCount = validStudents.filter(s => s.isDuplicate).length;
 
             const statTotal = document.getElementById('stat-total-records');
             const statValid = document.getElementById('stat-valid-records');
@@ -2789,18 +2820,34 @@ function handleExcelFile(file) {
             const statMerge = document.getElementById('stat-merge-records');
             if (statTotal) statTotal.textContent = totalCount;
             if (statValid) statValid.textContent = validCount;
-            if (statIssue) statIssue.textContent = issueCount;
+            if (statIssue) statIssue.textContent = fatalCount > 0 ? `${fatalCount} Fatal (${totalOmittedFields} fields skipped)` : (totalOmittedFields > 0 ? `${totalOmittedFields} fields skipped` : '0');
             if (statMerge) statMerge.textContent = mergeCount;
 
-            // Show or hide skip-issues button
+            // Configure action buttons dynamically based on validation results
+            const startBtn = document.getElementById('start-upload-btn');
+            const startBtnText = document.getElementById('start-upload-btn-text');
             const skipBtn = document.getElementById('skip-issues-upload-btn');
             const validOnlyCountSpan = document.getElementById('valid-only-count');
-            if (skipBtn) {
-                if (issueCount > 0 && validCount > 0) {
-                    skipBtn.classList.remove('hidden');
-                    if (validOnlyCountSpan) validOnlyCountSpan.textContent = validCount;
-                } else {
-                    skipBtn.classList.add('hidden');
+
+            if (validCount === 0) {
+                if (startBtn) {
+                    startBtn.disabled = true;
+                    if (startBtnText) startBtnText.textContent = 'Cannot Upload (Missing Names)';
+                }
+                if (skipBtn) skipBtn.classList.add('hidden');
+            } else {
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    if (fatalCount > 0) {
+                        if (startBtnText) startBtnText.textContent = `Upload ${validCount} Valid (Skip ${fatalCount} Missing Names)`;
+                        if (skipBtn) {
+                            skipBtn.classList.remove('hidden');
+                            if (validOnlyCountSpan) validOnlyCountSpan.textContent = validCount;
+                        }
+                    } else {
+                        if (startBtnText) startBtnText.textContent = `Start Upload (${validCount} Students)`;
+                        if (skipBtn) skipBtn.classList.add('hidden');
+                    }
                 }
             }
 
@@ -2826,14 +2873,23 @@ function handleExcelFile(file) {
                         let titleAttr = '';
                         
                         if (statusObj.status === 'error') {
-                            bgClass = 'bg-rose-100 text-rose-900 font-bold border-rose-300';
-                            titleAttr = `title="${statusObj.reason || 'Invalid data'}"`;
+                            bgClass = 'bg-rose-100 text-rose-900 border-rose-300 font-semibold';
+                            titleAttr = `title="${statusObj.reason || 'Invalid data - will be omitted'}"`;
                         } else if (statusObj.status === 'blank') {
                             bgClass = 'bg-amber-50 text-amber-800 italic';
                             titleAttr = 'title="Blank / Not provided"';
                         }
                         
-                        const display = displayVal || '<span class="text-amber-500 font-normal">--</span>';
+                        let display = displayVal;
+                        if (statusObj.status === 'error') {
+                            display = displayVal 
+                                ? `<span class="line-through text-rose-500">${escapeHtml(String(displayVal))}</span> <span class="text-[9px] text-rose-700 font-bold block">(Skipped)</span>` 
+                                : '<span class="text-rose-600 font-bold">Missing *</span>';
+                        } else if (!displayVal) {
+                            display = '<span class="text-amber-500 font-normal">--</span>';
+                        } else {
+                            display = escapeHtml(String(displayVal));
+                        }
                         return `<td class="p-2 border-b border-r border-slate-100 whitespace-nowrap ${bgClass}" ${titleAttr}>${display}</td>`;
                     };
 
@@ -2872,9 +2928,12 @@ function handleExcelFile(file) {
                                         let rowBg = 'hover:bg-slate-50';
                                         let statusBadge = '';
                                         
-                                        if (s.hasErrors) {
+                                        if (s.hasFatalError) {
                                             rowBg = 'bg-rose-50/50 hover:bg-rose-100/50';
-                                            statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-200 text-rose-800" title="${s.issues.join(', ')}">ISSUE</span>`;
+                                            statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-200 text-rose-800" title="Missing student name - cannot be imported">FATAL</span>`;
+                                        } else if (s.hasOmittedFields) {
+                                            rowBg = 'bg-amber-50/30 hover:bg-amber-50/60';
+                                            statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200" title="Valid student (${s.omittedFields.length} invalid field(s) skipped: ${s.omittedFields.join(', ')})">READY (${s.omittedFields.length} SKIPPED)</span>`;
                                         } else if (s.isDuplicate) {
                                             rowBg = 'bg-sky-50/50 hover:bg-sky-100/50';
                                             statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-200 text-sky-800" title="Matches existing student in this class">EXISTING</span>`;
@@ -2936,6 +2995,10 @@ document.getElementById('cancel-upload-btn').addEventListener('click', () => {
     if (dupContainer) dupContainer.classList.add('hidden');
     const skipBtn = document.getElementById('skip-issues-upload-btn');
     if (skipBtn) skipBtn.classList.add('hidden');
+    const startBtn = document.getElementById('start-upload-btn');
+    const startBtnText = document.getElementById('start-upload-btn-text');
+    if (startBtn) startBtn.disabled = false;
+    if (startBtnText) startBtnText.textContent = 'Start Upload';
     document.getElementById('upload-progress-bar').classList.add('hidden');
     document.getElementById('excel-drop-zone').classList.remove('hidden');
     document.getElementById('excel-preview-area').classList.add('hidden');
@@ -2972,6 +3035,44 @@ async function executeBulkImport(datasetToUpload, mergePolicy) {
             const batch = writeBatch(db);
 
             chunk.forEach((s) => {
+                const cleanPayload = {
+                    name: s.name,
+                    class: s.class,
+                    studentClass: s.studentClass,
+                    status: s.status || 'Active',
+                    gender: s.gender || 'Male',
+                    uid: s.uid || '',
+                    father: s.father || '',
+                    mother: s.mother || '',
+                    mobile: s.mobile || '',
+                    motherMobile: s.motherMobile || '',
+                    adm: s.adm || '',
+                    address: s.address || '',
+                    dob: s.dob || '',
+                    admDate: s.admDate || '',
+                    adm_date: s.admDate || '',
+                    adhaar: s.adhaar || '',
+                    samasthaId: s.samasthaId || '',
+                    photo: s.photo || '',
+                    academicYear: s.academicYear || activeAcademicYear || currentAcademicYear,
+                    profile: {
+                        dob: s.dob || '',
+                        address: s.address || '',
+                        adhaar: s.adhaar || '',
+                        admNo: s.adm || '',
+                        admDate: s.admDate || '',
+                        adm_date: s.admDate || '',
+                        samasthaId: s.samasthaId || '',
+                        photo: s.photo || '',
+                        uid: s.uid || '',
+                        father: s.father || '',
+                        mother: s.mother || '',
+                        mobile: s.mobile || '',
+                        motherMobile: s.motherMobile || '',
+                        status: s.status || 'Active'
+                    }
+                };
+
                 if (s.isDuplicate && s.existingMatch) {
                     if (mergePolicy === 'merge') {
                         // Merge fields into existing student document
@@ -2981,13 +3082,13 @@ async function executeBulkImport(datasetToUpload, mergePolicy) {
                         // Pick non-empty new values to merge into profile and root
                         const updateData = {};
                         ['name', 'gender', 'adm', 'dob', 'admDate', 'uid', 'father', 'mother', 'mobile', 'motherMobile', 'address', 'adhaar', 'status'].forEach(f => {
-                            if (s[f]) updateData[f] = s[f];
-                            if (s.profile && s.profile[f]) {
-                                updateData[`profile.${f}`] = s.profile[f];
+                            if (cleanPayload[f]) {
+                                updateData[f] = cleanPayload[f];
+                                updateData[`profile.${f}`] = cleanPayload[f];
                             }
                         });
                         batch.set(studentRef, updateData, { merge: true });
-                        batch.set(getEnrollmentRef(s.academicYear || currentAcademicYear, existingDocId), buildEnrollmentPayload(existingDocId, { ...s.existingMatch, ...s }), { merge: true });
+                        batch.set(getEnrollmentRef(cleanPayload.academicYear, existingDocId), buildEnrollmentPayload(existingDocId, { ...s.existingMatch, ...cleanPayload }), { merge: true });
                         mergedCount += 1;
                     } else {
                         // Skip existing
@@ -2996,8 +3097,8 @@ async function executeBulkImport(datasetToUpload, mergePolicy) {
                 } else {
                     // Create new student document
                     const studentRef = doc(collection(db, `${BASE_PATH}/students`));
-                    batch.set(studentRef, s);
-                    batch.set(getEnrollmentRef(s.academicYear || currentAcademicYear, studentRef.id), buildEnrollmentPayload(studentRef.id, s), { merge: true });
+                    batch.set(studentRef, cleanPayload);
+                    batch.set(getEnrollmentRef(cleanPayload.academicYear, studentRef.id), buildEnrollmentPayload(studentRef.id, cleanPayload), { merge: true });
                     addedCount += 1;
                 }
             });
@@ -3032,31 +3133,41 @@ async function executeBulkImport(datasetToUpload, mergePolicy) {
     }
 }
 
-// Start Upload Click (Uploads entire parsed file or prompts if errors exist)
+// Start Upload Click (Uploads all students with valid names, automatically omitting invalid optional fields)
 document.getElementById('start-upload-btn').addEventListener('click', async () => {
     if (!excelParsedData || excelParsedData.length === 0) return;
-    const errorRows = excelParsedData.filter(s => s.hasErrors);
+    const validRows = excelParsedData.filter(s => !s.hasFatalError);
+    const fatalRows = excelParsedData.filter(s => s.hasFatalError);
     const mergePolicy = document.querySelector('input[name="dup-action-policy"]:checked')?.value || 'skip';
 
-    if (errorRows.length > 0) {
-        const proceedWithErrors = confirm(`Warning: ${errorRows.length} rows have missing mandatory fields or invalid dates (highlighted in red).\n\nDo you want to upload all valid records and skip those with errors?`);
-        if (!proceedWithErrors) return;
-        const validRows = excelParsedData.filter(s => !s.hasErrors);
-        return executeBulkImport(validRows, mergePolicy);
+    if (!validRows.length) {
+        alert("Cannot upload: All rows are missing mandatory student names.");
+        return;
     }
 
-    if (!confirm(`Confirm upload for ${excelParsedData.length} students to class ${document.getElementById('bulk-upload-class')?.value}?`)) return;
-    await executeBulkImport(excelParsedData, mergePolicy);
+    const selectedBulkClass = (document.getElementById('bulk-upload-class')?.value || '').toUpperCase().trim();
+    const totalOmitted = validRows.reduce((acc, s) => acc + (s.omittedFields?.length || 0), 0);
+
+    let confirmMsg = `Confirm upload for ${validRows.length} student(s) to Class ${selectedBulkClass}?`;
+    if (totalOmitted > 0) {
+        confirmMsg += `\n\n• Note: ${totalOmitted} invalid optional field(s) across these students will be omitted (saved as blank).`;
+    }
+    if (fatalRows.length > 0) {
+        confirmMsg += `\n\n• Warning: ${fatalRows.length} row(s) missing mandatory student names will be skipped.`;
+    }
+
+    if (!confirm(confirmMsg)) return;
+    await executeBulkImport(validRows, mergePolicy);
 });
 
-// Skip Issues Button Click (Directly uploads only rows without any red errors)
+// Skip Issues Button Click (Uploads valid students skipping any fatal rows)
 document.getElementById('skip-issues-upload-btn')?.addEventListener('click', async () => {
     if (!excelParsedData || excelParsedData.length === 0) return;
-    const validRows = excelParsedData.filter(s => !s.hasErrors);
-    if (!validRows.length) return alert('No valid rows found to upload.');
+    const validRows = excelParsedData.filter(s => !s.hasFatalError);
+    if (!validRows.length) return alert('No valid student rows found.');
     const mergePolicy = document.querySelector('input[name="dup-action-policy"]:checked')?.value || 'skip';
     
-    if (!confirm(`Upload ${validRows.length} valid students (skipping ${excelParsedData.length - validRows.length} rows with errors)?`)) return;
+    if (!confirm(`Upload ${validRows.length} valid students? Invalid optional fields will be omitted and saved as blank.`)) return;
     await executeBulkImport(validRows, mergePolicy);
 });
 
