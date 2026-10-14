@@ -1,5 +1,5 @@
 import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-    import { collection, doc, getDoc, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+    import { collection, doc, getDoc, getDocs, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
     import { db, auth } from '../../config/firebase-config.js';
     import { BASE_PATH, applyCachedInstitutionLogo, escapeHtml, rememberInstitutionLogo, sanitizeUrl } from '../shared/app-common.js';
     import { registerPortalForPwa } from '../shared/pwa-install.js';
@@ -1361,7 +1361,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
         'Adm No': s.adm || '',
         'Student Name': s.name || '',
         'Gender': s.gender || '',
-        'Graduated Year': getAlumniGraduatedYear(s),
+        'Alumni Year': getAlumniGraduatedYear(s),
         'Completed Class': s.finalClass || s.promotedFrom || 'Completed',
         'Father / Guardian': s.father || s.guardian || '',
         'Mobile Number': s.mobile || s.phone || '',
@@ -1378,8 +1378,8 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     const printAlumniRegisterPdf = (alumniToPrint = []) => {
       const instName = resolveInstitutionName(institutionConfig) || 'Institution Official Portal';
       const yearTitle = (!officialFilters.alumniYear || officialFilters.alumniYear === 'ALL')
-        ? 'All Graduated Years'
-        : `Graduated Year: ${officialFilters.alumniYear}`;
+        ? 'All Alumni Years'
+        : `Alumni Year: ${officialFilters.alumniYear}`;
 
       let printContainer = document.getElementById('alumni-register-print-area');
       if (!printContainer) {
@@ -1417,7 +1417,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                 <th class="p-2 text-center w-20">Adm No</th>
                 <th class="p-2">Student Name</th>
                 <th class="p-2 text-center w-16">Gender</th>
-                <th class="p-2 text-center w-28">Graduated Year</th>
+                <th class="p-2 text-center w-28">Alumni Year</th>
                 <th class="p-2 text-center w-24">Final Class</th>
                 <th class="p-2">Guardian</th>
                 <th class="p-2 text-center w-28">Mobile</th>
@@ -1429,7 +1429,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
             </tbody>
           </table>
           <div class="mt-8 flex justify-between items-center text-xs font-bold text-slate-600 pt-6 border-t border-slate-200">
-            <div>Total Graduated Students: <b>${alumniToPrint.length}</b></div>
+            <div>Total Alumni Students: <b>${alumniToPrint.length}</b></div>
             <div>Principal / Headmaster Signature: ___________________</div>
           </div>
         </div>
@@ -1522,7 +1522,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                   <button type="button" class="font-extrabold text-slate-900 hover:text-indigo-700 hover:underline cursor-pointer text-left" data-alumni-id="${escapeHtml(s.id)}">
                     ${escapeHtml(s.name || 'Unnamed')}
                   </button>
-                  <div class="text-[10px] text-amber-700 font-bold">🎓 Graduated: ${escapeHtml(gradYear)}</div>
+                  <div class="text-[10px] text-amber-700 font-bold">🎓 Alumni: ${escapeHtml(gradYear)}</div>
                 </div>
               </div>
             </td>
@@ -1560,7 +1560,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                 </span>
                 <span>Alumni Register</span>
               </h3>
-              <p class="text-xs text-slate-500 font-semibold mt-0.5">Permanent historical archive of all graduated students across academic years.</p>
+              <p class="text-xs text-slate-500 font-semibold mt-0.5">Permanent historical archive of all alumni students across academic years.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="text-xs font-extrabold px-3 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
@@ -1579,7 +1579,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
           <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3">
             <div class="flex flex-wrap items-center gap-2.5">
               <div class="flex items-center gap-1.5">
-                <label for="alumni-filter-year" class="text-xs font-bold text-slate-700">Graduated Year:</label>
+                <label for="alumni-filter-year" class="text-xs font-bold text-slate-700">Alumni Year:</label>
                 <select id="alumni-filter-year" class="p-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-800 shadow-2xs min-w-[200px]">
                   ${yearOptionsHtml}
                 </select>
@@ -1611,7 +1611,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                   <th class="border border-slate-200 p-2.5 text-center w-24">Adm No</th>
                   <th class="border border-slate-200 p-2.5 text-left">Student Name</th>
                   <th class="border border-slate-200 p-2.5 text-center w-20">Gender</th>
-                  <th class="border border-slate-200 p-2.5 text-center w-28">Graduated Year</th>
+                  <th class="border border-slate-200 p-2.5 text-center w-28">Alumni Year</th>
                   <th class="border border-slate-200 p-2.5 text-center w-24">Completed Class</th>
                   <th class="border border-slate-200 p-2.5 text-left">Guardian</th>
                   <th class="border border-slate-200 p-2.5 text-center w-28">Mobile</th>
@@ -1860,7 +1860,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                   </span>
                   <span>Alumni Summary</span>
                 </h3>
-                <p class="text-xs text-slate-500 font-semibold mt-0.5">Summary of graduated students by academic year (strictly excluded from active student strength).</p>
+                <p class="text-xs text-slate-500 font-semibold mt-0.5">Summary of alumni students by academic year (strictly excluded from active student strength).</p>
               </div>
               <span class="text-xs font-extrabold px-3 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5 shadow-2xs">
                 <i class="fas fa-graduation-cap"></i> Total Alumni: ${alumniTotals.total}
@@ -2608,7 +2608,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
           { id: 'adm', label: 'Admission No.' },
           { id: 'name', label: 'Student Name' },
           { id: 'gender', label: 'Gender' },
-          { id: 'graduatedYear', label: 'Graduated Academic Year' },
+          { id: 'graduatedYear', label: 'Alumni Academic Year' },
           { id: 'completedClass', label: 'Completed Class' },
           { id: 'father', label: 'Father / Guardian' },
           { id: 'mobile', label: 'Mobile Number' },
@@ -3094,7 +3094,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
           { id: 'col_adm', field: 'adm', title: 'Adm No.', width: '80px' },
           { id: 'col_name', field: 'name', title: 'Student Name', width: '180px' },
           { id: 'col_gen', field: 'gender', title: 'Gender', width: '70px' },
-          { id: 'col_gyear', field: 'graduatedYear', title: 'Graduated Year', width: '120px' },
+          { id: 'col_gyear', field: 'graduatedYear', title: 'Alumni Year', width: '120px' },
           { id: 'col_ccls', field: 'completedClass', title: 'Final Class', width: '90px' },
           { id: 'col_fat', field: 'father', title: 'Guardian Name', width: '150px' },
           { id: 'col_mob', field: 'mobile', title: 'Mobile', width: '110px' },
@@ -3157,7 +3157,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       const yearLabel = selectedYearObj ? (selectedYearObj.name || selectedYearObj.label || selectedYearObj.id) : '';
       const autoSubInfo = [];
       if (builderConfig.sourceType === 'alumni') {
-        const yearTxt = (!builderConfig.academicYearId || builderConfig.academicYearId === 'ALL') ? 'All Graduated Years' : `Graduated Year: ${builderConfig.academicYearId}`;
+        const yearTxt = (!builderConfig.academicYearId || builderConfig.academicYearId === 'ALL') ? 'All Alumni Years' : `Alumni Year: ${builderConfig.academicYearId}`;
         autoSubInfo.push(`Alumni Cohort  •  ${yearTxt}`);
       } else if (builderConfig.sourceType !== 'staff') {
         if (yearLabel) autoSubInfo.push(`Academic Year: ${yearLabel}`);
@@ -3385,7 +3385,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
               </div>
               ${builderConfig.sourceType === 'alumni' ? `
               <div class="flex flex-col">
-                <label class="text-[10px] font-bold text-slate-700 mb-0.5">2. Graduated Year</label>
+                <label class="text-[10px] font-bold text-slate-700 mb-0.5">2. Alumni Year</label>
                 <select id="builder-academic-year" class="excel-input-ribbon w-40 font-bold">
                   <option value="ALL" ${builderConfig.academicYearId === 'ALL' ? 'selected' : ''}>All Academic Years (${allAlumniRecords.length})</option>
                   ${alumniDistinctYears.map((yr) => `<option value="${escapeHtml(yr)}" ${builderConfig.academicYearId === yr ? 'selected' : ''}>Alumni (${escapeHtml(yr)})</option>`).join('')}
@@ -4427,6 +4427,21 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       }
 
       renderAll();
+
+      onSnapshot(doc(db, `${BASE_PATH}/settings`, 'academicYears'), (snap) => {
+        if (!snap.exists()) return;
+        const yearsData = snap.data() || {};
+        const newCurrentYearVal = String(yearsData.currentYear || yearsData.activeYear || '').trim();
+        if (newCurrentYearVal && newCurrentYearVal !== activeAcademicYearId) {
+          activeAcademicYearId = newCurrentYearVal;
+          officialFilters.academicYearId = newCurrentYearVal;
+          builderConfig.academicYearId = newCurrentYearVal;
+          academicYears.forEach((y) => {
+            y.isActive = (y.id === activeAcademicYearId || y.name === activeAcademicYearId || y.label === activeAcademicYearId);
+          });
+          renderAll();
+        }
+      });
       if (isWorksheetPage) {
         const rawHash = (window.location.hash || '').replace('#', '');
         const validTabs = ['summary', 'students', 'staff', 'export'];

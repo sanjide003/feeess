@@ -23,7 +23,7 @@ window.logoutAdmin = (options = {}) => {
     });
 };
 
-const STUDENT_STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated', 'Discontinued'];
+const STUDENT_STATUS_OPTIONS = ['Active', 'Inactive', 'Alumni', 'Discontinued'];
 const ADMIN_ROLE_OPTIONS = {
     super_admin: {
         label: 'Super Admin',
@@ -290,7 +290,7 @@ const getCurrentAcademicYear = () => {
     if (month < 5) return `${year - 1}-${year}`;
     return `${year}-${year + 1}`;
 };
-const currentAcademicYear = getCurrentAcademicYear();
+let currentAcademicYear = getCurrentAcademicYear();
 const normalizeAcademicYearLabel = (startYear, endYear) => {
     const start = parseInt(startYear, 10);
     const end = parseInt(endYear, 10);
@@ -322,6 +322,9 @@ const normalizeGenderLabel = (value = '') => {
 };
 const normalizeStudentStatus = (status = 'Active') => {
     const normalizedStatus = status?.toString().trim().toLowerCase();
+    if (normalizedStatus === 'graduated' || normalizedStatus === 'alumni') {
+        return 'Alumni';
+    }
     return STUDENT_STATUS_OPTIONS.find((option) => option.toLowerCase() === normalizedStatus) || 'Active';
 };
 const getStudentStatusBadgeClass = (status) => ({
@@ -330,6 +333,7 @@ const getStudentStatusBadgeClass = (status) => ({
     Transferred: 'bg-amber-100 text-amber-700 border-amber-200',
     'TC Issued': 'bg-rose-100 text-rose-700 border-rose-200',
     Discontinued: 'bg-rose-100 text-rose-700 border-rose-200',
+    Alumni: 'bg-indigo-100 text-indigo-700 border-indigo-200',
     Graduated: 'bg-indigo-100 text-indigo-700 border-indigo-200'
 }[normalizeStudentStatus(status)] || 'bg-gray-100 text-gray-700 border-gray-200');
 const compareClassLabels = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
@@ -453,13 +457,13 @@ const getClassesForActiveYear = () => getClassesForYear(getActiveAcademicYearLab
 const suggestNextClass = (currentClassStr) => {
     if (!currentClassStr) return '';
     const trimmed = String(currentClassStr).trim();
-    if (trimmed.toUpperCase() === 'GRADUATED') return 'GRADUATED';
+    if (trimmed.toUpperCase() === 'ALUMNI' || trimmed.toUpperCase() === 'GRADUATED') return 'ALUMNI';
     const match = trimmed.match(/^(.*?)(\d+)(\s*[A-Za-z])?$/i);
     if (match) {
         const prefix = match[1] || '';
         const num = parseInt(match[2], 10);
         const division = match[3] || '';
-        if (num >= 12) return 'GRADUATED';
+        if (num >= 12) return 'ALUMNI';
         if (num === 10 && !prefix.toLowerCase().includes('plus')) return (prefix + '11' + division).trim();
         const nextNum = num + 1;
         return `${prefix}${nextNum}${division}`.trim();
@@ -980,11 +984,11 @@ const persistAcademicYears = async () => {
     }, { merge: true });
 };
 
-const refreshAcademicYearScopedData = () => {
+const refreshAcademicYearScopedData = (forceActive = false) => {
     students = getStudentsForActiveYear();
     classes = getClassesForActiveYear();
     setAcademicYearBadges();
-    populateManageAcademicYearDropdown();
+    populateManageAcademicYearDropdown(forceActive);
     populateClassDropdowns();
     if (typeof populateResultSelectors === 'function') populateResultSelectors();
     enforceSetupGate();
@@ -3039,8 +3043,10 @@ const populateClassDropdowns = () => {
     if (dataList) dataList.innerHTML = opts;
 
     const filterManage = document.getElementById('filter-manage-class'); const prevManageVal = filterManage.value;
-    filterManage.innerHTML = `<option value="all">All Classes</option>` + opts + `<option value="GRADUATED">Graduated</option>`;
-    if(prevManageVal === 'all' || prevManageVal === 'GRADUATED' || classes.includes(prevManageVal)) filterManage.value = prevManageVal;
+    filterManage.innerHTML = `<option value="all">All Classes</option>` + opts + `<option value="ALUMNI">Alumni</option>`;
+    if(prevManageVal === 'all' || prevManageVal === 'ALUMNI' || prevManageVal === 'GRADUATED' || classes.includes(prevManageVal)) {
+        filterManage.value = (prevManageVal === 'GRADUATED') ? 'ALUMNI' : prevManageVal;
+    }
 
     const filterConc = document.getElementById('filter-conc-class'); const prevConcVal = filterConc.value;
     filterConc.innerHTML = `<option value="">-- Select Class --</option>` + opts; if(classes.includes(prevConcVal)) filterConc.value = prevConcVal;
@@ -3052,14 +3058,15 @@ const populateClassDropdowns = () => {
     }
 };
 
-const populateManageAcademicYearDropdown = () => {
+const populateManageAcademicYearDropdown = (forceActive = false) => {
     const yearSelect = document.getElementById('filter-manage-academic-year');
     if (!yearSelect) return;
-    const currentSelected = yearSelect.value || getActiveAcademicYearLabel();
+    const currentSelected = forceActive ? getActiveAcademicYearLabel() : (yearSelect.value || getActiveAcademicYearLabel());
     const sortedYears = [...academicYears].sort((a, b) => (b.startYear || 0) - (a.startYear || 0));
 
     if (sortedYears.length === 0) {
-        yearSelect.innerHTML = `<option value="${escapeHtml(currentAcademicYear)}">${escapeHtml(currentAcademicYear)} (Current)</option>`;
+        yearSelect.innerHTML = `<option value="${escapeHtml(getActiveAcademicYearLabel())}">${escapeHtml(getActiveAcademicYearLabel())} (Current)</option>`;
+        yearSelect.value = getActiveAcademicYearLabel();
         return;
     }
 
@@ -3070,7 +3077,7 @@ const populateManageAcademicYearDropdown = () => {
         return `<option value="${escapeHtml(y.label)}">${escapeHtml(y.label)}${tag}</option>`;
     }).join('');
 
-    if (sortedYears.some((y) => y.label === currentSelected)) {
+    if (!forceActive && sortedYears.some((y) => y.label === currentSelected)) {
         yearSelect.value = currentSelected;
     } else {
         yearSelect.value = getActiveAcademicYearLabel();
@@ -3216,7 +3223,7 @@ const renderStudentList = () => {
     const fil = yearStudents.filter(s => {
         let match = true;
         if(fCls !== 'all') {
-            if (fCls === 'GRADUATED') match = match && (normalizeStudentStatus(s.status) === 'Graduated' || String(s.class || '').toUpperCase() === 'GRADUATED');
+            if (fCls === 'ALUMNI' || fCls === 'GRADUATED') match = match && (normalizeStudentStatus(s.status) === 'Alumni' || String(s.class || '').toUpperCase() === 'ALUMNI' || String(s.class || '').toUpperCase() === 'GRADUATED');
             else match = match && s.class === fCls;
         }
         if(fGen !== 'all') match = match && s.gender === fGen;
@@ -3302,8 +3309,10 @@ document.getElementById('filter-manage-academic-year')?.addEventListener('change
     const filterManage = document.getElementById('filter-manage-class');
     if (filterManage) {
         const prev = filterManage.value;
-        filterManage.innerHTML = `<option value="all">All Classes</option>` + opts + `<option value="GRADUATED">Graduated</option>`;
-        if (prev === 'all' || prev === 'GRADUATED' || yearClasses.includes(prev)) filterManage.value = prev;
+        filterManage.innerHTML = `<option value="all">All Classes</option>` + opts + `<option value="ALUMNI">Alumni</option>`;
+        if (prev === 'all' || prev === 'ALUMNI' || prev === 'GRADUATED' || yearClasses.includes(prev)) {
+            filterManage.value = (prev === 'GRADUATED') ? 'ALUMNI' : prev;
+        }
     }
     renderStudentList();
 });
@@ -3454,7 +3463,7 @@ const getManagedStudentsForExport = () => {
     const filtered = yearStudents.filter((s) => {
         let match = true;
         if(fCls !== 'all') {
-            if (fCls === 'GRADUATED') match = match && (normalizeStudentStatus(s.status) === 'Graduated' || String(s.class || '').toUpperCase() === 'GRADUATED');
+            if (fCls === 'ALUMNI' || fCls === 'GRADUATED') match = match && (normalizeStudentStatus(s.status) === 'Alumni' || String(s.class || '').toUpperCase() === 'ALUMNI' || String(s.class || '').toUpperCase() === 'GRADUATED');
             else match = match && s.class === fCls;
         }
         if(fGen !== 'all') match = match && s.gender === fGen;
@@ -4936,7 +4945,7 @@ const renderClassProgressionMap = () => {
         const options = [
             '<option value="">-- Select Next --</option>',
             ...classes.filter((candidate) => candidate !== classLabel).map((candidate) => `<option value="${candidate}" ${selectedNext === candidate ? 'selected' : ''}>${candidate}</option>`),
-            `<option value="GRADUATED" ${selectedNext === 'GRADUATED' ? 'selected' : ''}>GRADUATED</option>`
+            `<option value="ALUMNI" ${selectedNext === 'ALUMNI' || selectedNext === 'GRADUATED' ? 'selected' : ''}>ALUMNI</option>`
         ].join('');
         return `
             <label class="text-xs font-bold bg-gray-50 border rounded p-2">
@@ -5633,19 +5642,19 @@ document.getElementById('run-auto-promotion-btn').addEventListener('click', asyn
         if (!student) return;
         const toClass = progressionMap[student.class] || '';
         if (!toClass) return;
-        const isGraduated = toClass === 'GRADUATED';
+        const isAlumni = toClass === 'ALUMNI' || toClass === 'GRADUATED';
         operations.push(updateDoc(doc(db, `${BASE_PATH}/students`, student.id), {
-            class: isGraduated ? student.class : toClass,
+            class: isAlumni ? student.class : toClass,
             academicYear: targetYear,
-            status: isGraduated ? 'Graduated' : (student.status || 'Active')
+            status: isAlumni ? 'Alumni' : (student.status || 'Active')
         }));
         operations.push(setDoc(
             getEnrollmentRef(targetYear, student.id),
             buildEnrollmentPayload(student.id, {
                 ...student,
-                class: isGraduated ? student.class : toClass,
+                class: isAlumni ? student.class : toClass,
                 academicYear: targetYear,
-                status: isGraduated ? 'Graduated' : (student.status || 'Active')
+                status: isAlumni ? 'Alumni' : (student.status || 'Active')
             }),
             { merge: true }
         ));
@@ -5654,10 +5663,10 @@ document.getElementById('run-auto-promotion-btn').addEventListener('click', asyn
             academicYear: getActiveAcademicYearLabel(),
             studentId: student.id,
             fromClass: student.class,
-            toClass: isGraduated ? 'GRADUATED' : toClass,
+            toClass: isAlumni ? 'ALUMNI' : toClass,
             targetAcademicYear: targetYear,
             basedOnExam: 'annual',
-            decision: isGraduated ? 'GRADUATED' : 'PROMOTED',
+            decision: isAlumni ? 'ALUMNI' : 'PROMOTED',
             finalizedAt: new Date().toISOString()
         }, { merge: true }));
     });
@@ -7539,6 +7548,7 @@ document.getElementById('add-academic-year-btn').addEventListener('click', async
 
     if (status === 'current' || (!activeAcademicYear && status !== 'archived')) {
         activeAcademicYear = label;
+        currentAcademicYear = label;
     }
     await persistAcademicYears();
     await logAuditEvent({ category: 'security', action: 'academic-year.create', entityType: 'academicYear', entityId: label, message: `Academic year created: ${label}.` });
@@ -7551,6 +7561,8 @@ document.getElementById('add-academic-year-btn').addEventListener('click', async
     if (startMonthSelect) startMonthSelect.value = '5';
     if (endMonthSelect) endMonthSelect.value = '4';
     showToast(`Academic year "${label}" created successfully!`, 'success');
+    renderAcademicYears();
+    refreshAcademicYearScopedData(true);
 });
 
 document.getElementById('academic-year-input')?.addEventListener('input', (event) => {
@@ -7723,6 +7735,7 @@ document.getElementById('academic-year-edit-save')?.addEventListener('click', as
     academicYears = academicYears.map((year) => year.label === label ? { ...year, status: normalizedStatus === 'archived' ? 'archived' : 'active', startMonth, endMonth } : year);
     if (normalizedStatus === 'current') {
         activeAcademicYear = label;
+        currentAcademicYear = label;
         academicYears = academicYears.map((year) => ({
             ...year,
             status: year.label === activeAcademicYear ? 'active' : (year.status === 'archived' ? 'archived' : 'active')
@@ -7738,7 +7751,7 @@ document.getElementById('academic-year-edit-save')?.addEventListener('click', as
     closeAcademicYearEditPopup();
     showToast(`Academic year "${label}" updated.`, 'success');
     renderAcademicYears();
-    refreshAcademicYearScopedData();
+    refreshAcademicYearScopedData(normalizedStatus === 'current');
 });
 document.addEventListener('click', (e) => {
     if (!e.target.closest('#academic-years-list .relative')) {

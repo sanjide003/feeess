@@ -818,7 +818,10 @@ const initializeDataListeners = () => {
             }
             return true;
         });
-        document.getElementById('academic-year-badge').textContent = currentAcademicYear || 'All Years';
+        const badge = document.getElementById('academic-year-badge');
+        if (badge) badge.textContent = currentAcademicYear || 'All Years';
+        populateReportYears();
+        renderSnapshotPanelUI();
         scheduleRefresh();
     });
     onSnapshot(doc(db, `${BASE_PATH}/settings`, 'config'), (snap) => {

@@ -3289,7 +3289,7 @@ const studentPwa = registerPortalForPwa('student', {
             const classEl = document.getElementById('dash-class');
             if (classEl) classEl.textContent = isAlumni ? `Status: 🎓 Alumni` : `Class: ${classVal}`;
             const classValEl = document.getElementById('dash-class-val');
-            if (classValEl) classValEl.textContent = isAlumni ? `🎓 Alumni (Graduated)` : classVal;
+            if (classValEl) classValEl.textContent = isAlumni ? `🎓 Alumni` : classVal;
 
             // Academic Year (Shown in Profile Header)
             const acadYear = currentAcademicYear || st.academicYear || prof.academicYear || selectedFeeAcademicYear || '';

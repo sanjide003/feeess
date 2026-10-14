@@ -610,7 +610,7 @@ window.openStudentProfile = (id) => {
             ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200'
             : lowerStatus === 'discontinued'
                 ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200'
-                : lowerStatus === 'graduated'
+                : (lowerStatus === 'alumni' || lowerStatus === 'graduated')
                     ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-200'
                     : 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-200 text-slate-700 border border-slate-300';
     }
@@ -4645,6 +4645,7 @@ onAuthStateChanged(auth, async (user) => {
         currentWorkingAcademicYear = payload.currentYear || currentWorkingAcademicYear || '';
         applyCurrentYearStudentScope();
         populateClassDropdowns();
+        setupBulkUploadUI();
         updateDashboardMetrics();
         syncMasterLedgerState();
         hideLoader();
