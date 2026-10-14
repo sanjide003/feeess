@@ -83,6 +83,9 @@
                 <a href="#promote-students" class="nav-link drawer-link flex items-center gap-3 p-3 transition" title="Promote Students"><i class="fas fa-user-graduate w-5 text-center shrink-0"></i><span class="text-sm nav-text truncate">Promote Students</span></a>
                 <a href="#manage-classes" class="nav-link drawer-link flex items-center gap-3 p-3 transition" title="Classes & Divisions"><i class="fas fa-chalkboard text-center w-5 shrink-0"></i><span class="text-sm nav-text truncate">Classes & Divisions</span></a>
                 
+                <div class="drawer-heading">Continuity &amp; Transfers</div>
+                <a href="#student-continuity" class="nav-link drawer-link flex items-center gap-3 p-3 transition" title="Discontinue &amp; Re-admission"><i class="fas fa-user-clock w-5 text-center shrink-0"></i><span class="text-sm nav-text truncate">Discontinue &amp; Re-admission</span></a>
+                
                 <div class="drawer-heading">Finance</div>
                 <a href="#fee-settings" class="nav-link drawer-link flex items-center gap-3 p-3 transition" title="Fee Settings"><i class="fas fa-receipt w-5 text-center shrink-0"></i><span class="text-sm nav-text truncate">Fee Settings</span></a>
                 <a href="#manage-groups" class="nav-link drawer-link flex items-center gap-3 p-3 transition" title="Student Groups"><i class="fas fa-layer-group w-5 text-center shrink-0"></i><span class="text-sm nav-text truncate">Student Groups</span></a>
@@ -621,7 +624,7 @@
                             <div><label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Academic Year</label><select id="filter-manage-academic-year" class="w-full p-2.5 border rounded-lg bg-white font-bold text-gray-800"></select></div>
                             <div><label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Filter by Class</label><select id="filter-manage-class" class="w-full p-2.5 border rounded-lg bg-white"><option value="all">All Classes</option><option value="GRADUATED">Graduated</option></select></div>
                             <div><label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Filter by Gender</label><select id="filter-manage-gender" class="w-full p-2.5 border rounded-lg bg-white"><option value="all">All</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
-                            <div><label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Filter by Status</label><select id="filter-manage-status" class="w-full p-2.5 border rounded-lg bg-white"><option value="all">All</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Graduated">Graduated</option></select></div>
+                            <div><label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Filter by Status</label><select id="filter-manage-status" class="w-full p-2.5 border rounded-lg bg-white"><option value="all">All Active</option><option value="Active">Active</option><option value="Inactive">Inactive</option><option value="Graduated">Graduated</option><option value="Discontinued">Discontinued</option></select></div>
                             <div><label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Sort Students</label><select id="sort-manage-students" class="w-full p-2.5 border rounded-lg bg-white"><option value="name-asc">Alphabet Order</option><option value="adm-asc">Number Order</option><option value="male-first">Male then Female</option></select></div>
                             <div><label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Quick Search</label><div class="relative"><input type="text" id="search-student-input" placeholder="Search name or adm no..." class="w-full p-2.5 pl-9 border rounded-lg bg-white"><i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i></div></div>
                         </div>
@@ -799,6 +802,171 @@
                         <button type="button" id="btn-open-promote-confirm" class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm shadow-md transition flex items-center justify-center gap-2">
                             <i class="fas fa-arrow-circle-right"></i> Review & Commit Bulk Promotion
                         </button>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Student Continuity & Re-admission Management -->
+            <section id="student-continuity-page" class="page hidden space-y-6">
+                <!-- Page Header -->
+                <div class="card p-5 rounded-2xl border-slate-200 bg-white">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">Student Lifecycle</div>
+                            <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">Student Discontinue &amp; Re-admission</h2>
+                            <p class="text-sm text-slate-600 mt-1">Manage student departures, preserve historical fee dues up to exit date, and re-admit returning students across academic years.</p>
+                        </div>
+                        <div class="flex items-center gap-2 self-start md:self-center shrink-0">
+                            <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-right">
+                                <div class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Active Academic Year</div>
+                                <div id="continuity-active-year-display" class="text-base font-extrabold text-slate-900 font-mono tabular-nums">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel A: Discontinue Student Action Panel -->
+                <div class="card p-6 rounded-2xl border-slate-200 bg-white shadow-sm space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+                            <h3 class="text-base font-bold text-slate-900">Discontinue Student</h3>
+                        </div>
+                        <span class="text-xs text-slate-500">Preserves prior dues · Zero fees during gap</span>
+                    </div>
+
+                    <form id="discontinue-student-form" class="space-y-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <!-- Filter Class -->
+                            <div>
+                                <label for="continuity-class-select" class="block text-xs font-bold text-slate-700 mb-1.5">1. Filter Class</label>
+                                <select id="continuity-class-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                                    <option value="">Select Class...</option>
+                                </select>
+                            </div>
+
+                            <!-- Select Student -->
+                            <div>
+                                <label for="continuity-student-select" class="block text-xs font-bold text-slate-700 mb-1.5">2. Select Student</label>
+                                <select id="continuity-student-select" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition" disabled>
+                                    <option value="">Choose Class First</option>
+                                </select>
+                            </div>
+
+                            <!-- Departure Date -->
+                            <div>
+                                <label for="continuity-exit-date" class="block text-xs font-bold text-slate-700 mb-1.5">3. Departure Date</label>
+                                <input type="date" id="continuity-exit-date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition font-mono tabular-nums">
+                            </div>
+
+                            <!-- Optional TC Generation -->
+                            <div class="flex flex-col justify-end">
+                                <label class="flex items-center gap-2 cursor-pointer p-2.5 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100/70 transition">
+                                    <input type="checkbox" id="continuity-generate-tc" class="w-4 h-4 text-slate-800 rounded border-slate-300 focus:ring-slate-400">
+                                    <span class="text-xs font-bold text-slate-800">Generate TC Entry</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Departure Reason / Notes -->
+                        <div>
+                            <label for="continuity-exit-reason" class="block text-xs font-bold text-slate-700 mb-1.5">4. Departure Reason &amp; Administrative Notes</label>
+                            <input type="text" id="continuity-exit-reason" placeholder="e.g. Relocated to another town, Madrasa transfer, medical reasons..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                        </div>
+
+                        <!-- Selected Student Preview Card -->
+                        <div id="continuity-student-preview" class="hidden p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+                                <div class="flex items-center gap-3">
+                                    <img id="continuity-preview-photo" src="assets/images/placeholder.svg" alt="Student Photo" class="w-12 h-12 rounded-full object-cover border border-slate-200 bg-white shrink-0">
+                                    <div>
+                                        <div id="continuity-preview-name" class="text-sm font-extrabold text-slate-900 leading-tight">Student Name</div>
+                                        <div class="text-xs text-slate-600 font-mono mt-0.5 space-x-2">
+                                            <span>Adm: <b id="continuity-preview-adm" class="text-slate-800">--</b></span>
+                                            <span>·</span>
+                                            <span>Class: <b id="continuity-preview-class" class="text-slate-800">--</b></span>
+                                            <span>·</span>
+                                            <span id="continuity-preview-gender" class="text-slate-600">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-left sm:text-right">
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Unpaid Prior Dues</div>
+                                    <div id="continuity-preview-dues" class="text-lg font-extrabold text-rose-700 font-mono tabular-nums">₹0</div>
+                                    <div class="text-[10px] text-slate-500">Preserved for future collection</div>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+                                <div>Guardian: <span id="continuity-preview-guardian" class="font-bold text-slate-800">--</span> · Phone: <span id="continuity-preview-phone" class="font-mono tabular-nums text-slate-800">--</span></div>
+                                <div class="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
+                                    Student will be archived from active attendance and daily registers.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" id="execute-discontinue-btn" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-sm shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-user-minus"></i>
+                                <span>Discontinue Student</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Panel B: Discontinued Students Archive -->
+                <div class="card p-6 rounded-2xl border-slate-200 bg-white shadow-sm space-y-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">Discontinued Students Directory</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Archive of past student departures with recorded reasons, preserved dues, and multi-year re-admission.</p>
+                        </div>
+                        <div class="flex items-center gap-4 text-xs font-mono tabular-nums">
+                            <div>
+                                <span class="text-slate-400">Total Departed:</span>
+                                <span id="continuity-metric-total" class="font-extrabold text-slate-800 ml-1">0</span>
+                            </div>
+                            <span class="text-slate-300">·</span>
+                            <div>
+                                <span class="text-slate-400">Preserved Dues:</span>
+                                <span id="continuity-metric-dues" class="font-extrabold text-rose-700 ml-1">₹0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search and Filters -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative flex-1">
+                            <i class="fas fa-search absolute left-3 top-3 text-slate-400 text-xs"></i>
+                            <input type="text" id="continuity-search-input" placeholder="Search by name, admission no, or reason..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                        </div>
+                        <div class="w-full sm:w-56 shrink-0">
+                            <select id="continuity-class-filter" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                                <option value="all">All Departure Classes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Directory Table -->
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead class="bg-slate-50 text-slate-600 text-xs uppercase font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="py-3 px-4">Student</th>
+                                    <th class="py-3 px-4">Class at Exit</th>
+                                    <th class="py-3 px-4">Exit Date &amp; Reason</th>
+                                    <th class="py-3 px-4">Inactive Gap</th>
+                                    <th class="py-3 px-4 text-right">Preserved Dues</th>
+                                    <th class="py-3 px-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="discontinued-students-table-body" class="divide-y divide-slate-100 text-slate-700">
+                                <tr>
+                                    <td colspan="6" class="p-8 text-center text-slate-500 font-medium">
+                                        No discontinued students recorded.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </section>
@@ -2027,9 +2195,135 @@
                 <button type="button" id="admin-crop-save-btn" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold shadow-md">Apply Crop</button>
             </div>
         </div>
+    <!-- Re-admission Modal -->
+    <div id="readmission-popup" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[9999] p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden p-6 space-y-5 my-8">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                    <h3 class="text-base font-bold text-slate-900">Student Re-admission Wizard</h3>
+                </div>
+                <button type="button" id="readmit-modal-close-btn" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
+            </div>
+
+            <!-- Student Summary -->
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3">
+                <img id="readmit-student-photo" src="assets/images/placeholder.svg" alt="Photo" class="w-11 h-11 rounded-full object-cover border border-slate-200 bg-white shrink-0">
+                <div class="min-w-0 flex-1">
+                    <div id="readmit-student-name" class="font-extrabold text-sm text-slate-900 truncate">Student Name</div>
+                    <div class="text-xs text-slate-600 font-mono mt-0.5 space-x-1.5">
+                        <span>Adm: <b id="readmit-student-adm" class="text-slate-800">--</b></span>
+                        <span>·</span>
+                        <span>Exit Class: <b id="readmit-student-exit-class" class="text-slate-800">--</b></span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">
+                        Exit Date: <span id="readmit-student-exit-date" class="font-mono tabular-nums text-slate-700">--</span>
+                        <span id="readmit-student-exit-reason-wrap" class="hidden">· Reason: <span id="readmit-student-exit-reason" class="text-slate-700 italic">--</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <form id="readmit-student-form" class="space-y-4">
+                <input type="hidden" id="readmit-student-id">
+
+                <!-- Target Academic Year & Target Class -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="readmit-target-year" class="block text-xs font-bold text-slate-700 mb-1">Target Academic Year</label>
+                        <select id="readmit-target-year" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition font-mono tabular-nums">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="readmit-target-class" class="block text-xs font-bold text-slate-700 mb-1">Target New Class</label>
+                        <select id="readmit-target-class" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition" required>
+                            <!-- Populated based on target academic year -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Return Date -->
+                <div>
+                    <label for="readmit-return-date" class="block text-xs font-bold text-slate-700 mb-1">Return / Re-admission Date</label>
+                    <input type="date" id="readmit-return-date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition font-mono tabular-nums" required>
+                </div>
+
+                <!-- Re-admission Notes -->
+                <div>
+                    <label for="readmit-notes" class="block text-xs font-bold text-slate-700 mb-1">Re-admission Notes / Reason for Return</label>
+                    <input type="text" id="readmit-notes" placeholder="e.g. Returned from abroad, re-enrolling in Class 5..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-slate-400 focus:bg-white transition">
+                </div>
+
+                <!-- Gap & Fee Protection Preview -->
+                <div class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/60 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-bold text-emerald-900">
+                        <span>Academic Gap Trajectory</span>
+                        <span id="readmit-gap-badge" class="font-mono tabular-nums">--</span>
+                    </div>
+                    <div id="readmit-gap-summary" class="text-xs text-emerald-800 leading-relaxed">
+                        Calculating missed academic years...
+                    </div>
+                    <div class="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs text-emerald-900">
+                        <span>Preserved Prior Dues:</span>
+                        <span id="readmit-preserved-dues" class="font-extrabold font-mono tabular-nums text-rose-700">₹0</span>
+                    </div>
+                    <div class="text-[11px] text-emerald-700">
+                        Guaranteed: Zero fees will be charged for gap years. New regular fees will start strictly from the return date.
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
+                    <button type="button" id="readmit-cancel-btn" class="px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+                    <button type="submit" id="readmit-commit-btn" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                        <i class="fas fa-user-check"></i>
+                        <span>Confirm Re-admission</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
+    <!-- Student Continuity Trajectory History Modal -->
+    <div id="continuity-history-popup" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[9999] p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden p-6 space-y-5 my-8">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Continuity &amp; Trajectory History</h3>
+                    <p class="text-xs text-slate-500">Chronological lifecycle audit log of departures, gaps, and returns.</p>
+                </div>
+                <button type="button" id="continuity-history-close-btn" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
+            </div>
 
+            <!-- Student Snapshot -->
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3">
+                <img id="history-student-photo" src="assets/images/placeholder.svg" alt="Photo" class="w-12 h-12 rounded-full object-cover border border-slate-200 bg-white shrink-0">
+                <div class="min-w-0 flex-1">
+                    <div id="history-student-name" class="font-extrabold text-sm text-slate-900 truncate">Student Name</div>
+                    <div class="text-xs text-slate-600 font-mono mt-0.5 space-x-1.5">
+                        <span>Adm: <b id="history-student-adm" class="text-slate-800">--</b></span>
+                        <span>·</span>
+                        <span>Status: <b id="history-student-status" class="text-slate-800">--</b></span>
+                    </div>
+                    <div class="text-xs text-slate-500 mt-0.5">
+                        Guardian: <span id="history-student-guardian" class="text-slate-700 font-medium">--</span> · Phone: <span id="history-student-phone" class="font-mono tabular-nums text-slate-700">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline Stream -->
+            <div class="space-y-3 max-h-80 overflow-y-auto pr-1">
+                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Historical Timeline</div>
+                <div id="continuity-history-timeline" class="space-y-3 text-xs">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-100">
+                <button type="button" id="continuity-history-done-btn" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm transition">Close</button>
+            </div>
+        </div>
+    </div>
 
     <script src="scripts/shared/hub-navigation.js"></script>
     <script type="module" src="scripts/pages/admin-page.js"></script>

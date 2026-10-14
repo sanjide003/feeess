@@ -23,7 +23,7 @@ window.logoutAdmin = (options = {}) => {
     });
 };
 
-const STUDENT_STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated'];
+const STUDENT_STATUS_OPTIONS = ['Active', 'Inactive', 'Graduated', 'Discontinued'];
 const ADMIN_ROLE_OPTIONS = {
     super_admin: {
         label: 'Super Admin',
@@ -61,6 +61,7 @@ const PAGE_PERMISSIONS = {
     'add-students': 'students.manage',
     'manage-students': 'students.manage',
     'promote-students': 'students.manage',
+    'student-continuity': 'students.manage',
     'manage-classes': 'classes.manage',
     'manage-groups': 'groups.manage',
     results: 'results.manage',
@@ -329,6 +330,7 @@ const getStudentStatusBadgeClass = (status) => ({
     Inactive: 'bg-gray-100 text-gray-700 border-gray-200',
     Transferred: 'bg-amber-100 text-amber-700 border-amber-200',
     'TC Issued': 'bg-rose-100 text-rose-700 border-rose-200',
+    Discontinued: 'bg-rose-100 text-rose-700 border-rose-200',
     Graduated: 'bg-indigo-100 text-indigo-700 border-indigo-200'
 }[normalizeStudentStatus(status)] || 'bg-gray-100 text-gray-700 border-gray-200');
 const compareClassLabels = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
@@ -992,6 +994,7 @@ const refreshAcademicYearScopedData = () => {
     if(!document.getElementById('manage-classes-page').classList.contains('hidden')) renderClassList();
     if(!document.getElementById('manage-students-page').classList.contains('hidden')) renderStudentList();
     if(!document.getElementById('promote-students-page')?.classList.contains('hidden')) renderPromotionTool();
+    if(!document.getElementById('student-continuity-page')?.classList.contains('hidden')) renderContinuityPage();
     if(!document.getElementById('manage-groups-page').classList.contains('hidden')) renderStudentGroups();
     if(!document.getElementById('fee-concessions-page').classList.contains('hidden')) renderConcessionsList();
 };
@@ -1210,6 +1213,7 @@ const activateAdminPage = (targetId, options = {}) => {
     if(targetId === 'academic-years') renderAcademicYears();
     if(targetId === 'manage-students') { populateManageAcademicYearDropdown(); populateClassDropdowns(); renderStudentList(); }
     if(targetId === 'promote-students') renderPromotionTool();
+    if(targetId === 'student-continuity') renderContinuityPage();
     if(targetId === 'manage-classes') { populateClassDropdowns(); renderClassList(); }
     if(targetId === 'manage-groups') renderStudentGroups();
     if(targetId === 'results') renderResultManagement();
@@ -3217,7 +3221,11 @@ const renderStudentList = () => {
             else match = match && s.class === fCls;
         }
         if(fGen !== 'all') match = match && s.gender === fGen;
-        if(fStatus !== 'all') match = match && normalizeStudentStatus(s.status) === fStatus;
+        if(fStatus !== 'all') {
+            match = match && normalizeStudentStatus(s.status) === fStatus;
+        } else {
+            match = match && normalizeStudentStatus(s.status) !== 'Discontinued';
+        }
         if(sTerm) match = match && ((s.name && s.name.toLowerCase().includes(sTerm)) || (s.adm && String(s.adm).toLowerCase().includes(sTerm)));
         return match;
     });
@@ -3492,6 +3500,7 @@ const buildStudentExportRows = () => {
         'Permanent Address': student.address || ''
     };
 });
+};
 const exportStudentsToExcel = () => {
     const exportRows = buildStudentExportRows();
     if (exportRows.length === 0) {
@@ -4038,6 +4047,758 @@ document.getElementById('promotion-confirm-execute-btn')?.addEventListener('clic
             executeBtn.innerHTML = '<i class="fas fa-check mr-1.5"></i> <span>Confirm & Commit Promotion</span>';
         }
     }
+});
+
+// ============================================================================
+// --- 3.2 STUDENT CONTINUITY & RE-ADMISSION MANAGEMENT SUBSYSTEM ---
+// ============================================================================
+
+let continuitySelectedStudent = null;
+
+const calculateStudentPreservedDues = (student, exitDate = null) => {
+    if (!student) return 0;
+    if (student.discontinuationDetails && typeof student.discontinuationDetails.preservedDues === 'number') {
+        const exitTime = student.discontinuationDetails.date ? new Date(student.discontinuationDetails.date).getTime() : 0;
+        const studentPayments = (allPayments || []).filter(p => p.studentId === student.id || p.admissionNo === student.adm);
+        const postExitPayments = studentPayments.filter(p => {
+            const pTime = p.paymentDate ? new Date(p.paymentDate).getTime() : (p.timestamp || 0);
+            return pTime >= exitTime;
+        }).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        return Math.max(0, student.discontinuationDetails.preservedDues - postExitPayments);
+    }
+
+    const monthlyRate = typeof student.concessionFee === 'number'
+        ? Number(student.concessionFee)
+        : (feeItems.find(f => f.type === 'monthly')?.amount || 200);
+
+    const targetDate = exitDate ? new Date(exitDate) : new Date();
+    const startYearStr = (activeAcademicYear || currentAcademicYear).split('-')[0];
+    const academicStart = new Date(Number(startYearStr) || new Date().getFullYear(), 4, 1);
+    let monthsElapsed = (targetDate.getFullYear() - academicStart.getFullYear()) * 12 + (targetDate.getMonth() - academicStart.getMonth()) + 1;
+    if (monthsElapsed < 1) monthsElapsed = 1;
+    if (monthsElapsed > 12) monthsElapsed = 12;
+
+    const totalAssessed = monthsElapsed * monthlyRate;
+    const totalPaid = (allPayments || [])
+        .filter(p => p.studentId === student.id || p.admissionNo === student.adm)
+        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+    return Math.max(0, totalAssessed - totalPaid);
+};
+
+const calculateGapDurationText = (startDateStr, endDateStr) => {
+    if (!startDateStr) return 'Unknown duration';
+    const start = new Date(startDateStr);
+    const end = endDateStr ? new Date(endDateStr) : new Date();
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return '0 Days';
+
+    let years = end.getFullYear() - start.getFullYear();
+    let months = end.getMonth() - start.getMonth();
+    let days = end.getDate() - start.getDate();
+
+    if (days < 0) {
+        months -= 1;
+        const prevMonth = new Date(end.getFullYear(), end.getMonth(), 0);
+        days += prevMonth.getDate();
+    }
+    if (months < 0) {
+        years -= 1;
+        months += 12;
+    }
+
+    const parts = [];
+    if (years > 0) parts.push(`${years} ${years === 1 ? 'Year' : 'Years'}`);
+    if (months > 0) parts.push(`${months} ${months === 1 ? 'Month' : 'Months'}`);
+    if (days > 0 && years === 0) parts.push(`${days} ${days === 1 ? 'Day' : 'Days'}`);
+    return parts.length ? parts.join(' ') : 'Less than a day';
+};
+
+const getMissedAcademicYears = (exitAcademicYear, targetAcademicYear) => {
+    if (!exitAcademicYear || !targetAcademicYear) return [];
+    const [startA] = String(exitAcademicYear).split('-').map(Number);
+    const [startB] = String(targetAcademicYear).split('-').map(Number);
+    if (!startA || !startB || startB <= startA) return [];
+
+    const missed = [];
+    for (let yr = startA; yr < startB; yr++) {
+        missed.push(`${yr}-${yr + 1}`);
+    }
+    return missed;
+};
+
+const populateContinuityClassDropdown = () => {
+    const classSelect = document.getElementById('continuity-class-select');
+    const classFilter = document.getElementById('continuity-class-filter');
+    if (!classSelect || !classFilter) return;
+
+    const activeClasses = getClassesForActiveYear();
+    const currentVal = classSelect.value;
+    classSelect.innerHTML = `<option value="">Select Class...</option>` +
+        activeClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if (activeClasses.includes(currentVal)) classSelect.value = currentVal;
+
+    const discontinuedStudents = (rawStudents || []).filter(s => normalizeStudentStatus(s.status) === 'Discontinued');
+    const departureClasses = sortClassLabels([...new Set(discontinuedStudents.map(s => s.discontinuationDetails?.lastClass || s.class).filter(Boolean))]);
+    const currentFilterVal = classFilter.value;
+    classFilter.innerHTML = `<option value="all">All Departure Classes</option>` +
+        departureClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    if (departureClasses.includes(currentFilterVal) || currentFilterVal === 'all') classFilter.value = currentFilterVal;
+};
+
+const populateContinuityStudentDropdown = (selectedClass) => {
+    const studentSelect = document.getElementById('continuity-student-select');
+    const previewWrap = document.getElementById('continuity-student-preview');
+    if (!studentSelect) return;
+
+    if (!selectedClass) {
+        studentSelect.innerHTML = '<option value="">Choose Class First</option>';
+        studentSelect.disabled = true;
+        if (previewWrap) previewWrap.classList.add('hidden');
+        continuitySelectedStudent = null;
+        return;
+    }
+
+    const activeClassStudents = (getStudentsForActiveYear() || []).filter(s => {
+        return s.class === selectedClass && normalizeStudentStatus(s.status) !== 'Discontinued';
+    });
+
+    activeClassStudents.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (activeClassStudents.length === 0) {
+        studentSelect.innerHTML = '<option value="">No Active Students in this Class</option>';
+        studentSelect.disabled = true;
+        if (previewWrap) previewWrap.classList.add('hidden');
+        continuitySelectedStudent = null;
+        return;
+    }
+
+    studentSelect.disabled = false;
+    studentSelect.innerHTML = '<option value="">Select Student to Discontinue...</option>' +
+        activeClassStudents.map(s => {
+            const admLabel = s.adm ? ` (Adm: ${s.adm})` : '';
+            return `<option value="${s.id}">${escapeHtml(s.name)}${admLabel}</option>`;
+        }).join('');
+
+    if (previewWrap) previewWrap.classList.add('hidden');
+    continuitySelectedStudent = null;
+};
+
+const updateContinuityStudentPreview = (studentId) => {
+    const previewWrap = document.getElementById('continuity-student-preview');
+    if (!previewWrap) return;
+
+    if (!studentId) {
+        previewWrap.classList.add('hidden');
+        continuitySelectedStudent = null;
+        return;
+    }
+
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    if (!student) {
+        previewWrap.classList.add('hidden');
+        continuitySelectedStudent = null;
+        return;
+    }
+
+    continuitySelectedStudent = student;
+    const exitDateInput = document.getElementById('continuity-exit-date');
+    const exitDate = exitDateInput?.value || new Date().toISOString().split('T')[0];
+    const dues = calculateStudentPreservedDues(student, exitDate);
+
+    const photoEl = document.getElementById('continuity-preview-photo');
+    if (photoEl) photoEl.src = resolveSafePhotoUrl(student.photoUrl || student.photo);
+    document.getElementById('continuity-preview-name').textContent = student.name || 'Unknown';
+    document.getElementById('continuity-preview-adm').textContent = student.adm || '--';
+    document.getElementById('continuity-preview-class').textContent = student.class || '--';
+    document.getElementById('continuity-preview-gender').textContent = student.gender || '--';
+    document.getElementById('continuity-preview-guardian').textContent = student.guardian || student.father || '--';
+    document.getElementById('continuity-preview-phone').textContent = student.phone || student.mobile || '--';
+    document.getElementById('continuity-preview-dues').textContent = `₹${dues.toLocaleString('en-IN')}`;
+
+    previewWrap.classList.remove('hidden');
+};
+
+const handleDiscontinueStudent = async (e) => {
+    e.preventDefault();
+    const studentSelect = document.getElementById('continuity-student-select');
+    const exitDateInput = document.getElementById('continuity-exit-date');
+    const exitReasonInput = document.getElementById('continuity-exit-reason');
+    const generateTcCheckbox = document.getElementById('continuity-generate-tc');
+    const submitBtn = document.getElementById('execute-discontinue-btn');
+
+    const studentId = studentSelect?.value;
+    const exitDate = exitDateInput?.value;
+    const exitReason = (exitReasonInput?.value || '').trim();
+    const generateTc = !!generateTcCheckbox?.checked;
+
+    if (!studentId) {
+        alert('Please select a student to discontinue.');
+        return;
+    }
+    if (!exitDate) {
+        alert('Please specify the departure date.');
+        return;
+    }
+
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    if (!student) {
+        alert('Student record not found.');
+        return;
+    }
+
+    const preservedDues = calculateStudentPreservedDues(student, exitDate);
+    const activeYear = getActiveAcademicYearLabel();
+    const lastClass = student.class || '';
+
+    const confirmMsg = `Are you sure you want to discontinue student:\n\n` +
+        `• Name: ${student.name}\n` +
+        `• Admission No: ${student.adm || '--'}\n` +
+        `• Class: ${lastClass}\n` +
+        `• Departure Date: ${formatDateDisplay(exitDate)}\n` +
+        `• Preserved Prior Dues: ₹${preservedDues}\n` +
+        `• Transfer Certificate Entry: ${generateTc ? 'Yes (Draft Created)' : 'No'}\n\n` +
+        `This will move the student to the Discontinued Archive. Historical fees and marks will be preserved without gap year charges.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Processing...</span>';
+        }
+
+        const currentAcademicYearsMap = student.academicYears && typeof student.academicYears === 'object'
+            ? { ...student.academicYears }
+            : {};
+        
+        currentAcademicYearsMap[activeYear] = {
+            ...(currentAcademicYearsMap[activeYear] || {}),
+            class: lastClass,
+            status: 'Discontinued',
+            discontinuedAt: exitDate,
+            reason: exitReason
+        };
+
+        const currentContinuityLog = Array.isArray(student.continuityLog)
+            ? [...student.continuityLog]
+            : [];
+
+        currentContinuityLog.unshift({
+            id: 'event_' + Date.now(),
+            type: 'discontinue',
+            timestamp: new Date().toISOString(),
+            date: exitDate,
+            academicYear: activeYear,
+            class: lastClass,
+            reason: exitReason || 'Administrative departure',
+            adminEmail: currentAdminEmail || 'Admin',
+            priorBalance: preservedDues,
+            tcGenerated: generateTc
+        });
+
+        const discontinuationDetails = {
+            date: exitDate,
+            academicYear: activeYear,
+            lastClass: lastClass,
+            reason: exitReason || 'Administrative departure',
+            recordedBy: currentAdminEmail || 'Admin',
+            recordedAt: new Date().toISOString(),
+            preservedDues: preservedDues,
+            tcGenerated: generateTc
+        };
+
+        const studentRef = doc(db, `${BASE_PATH}/students`, studentId);
+        await updateDoc(studentRef, {
+            status: 'Discontinued',
+            discontinuationDetails,
+            academicYears: currentAcademicYearsMap,
+            continuityLog: currentContinuityLog,
+            updatedAt: new Date().toISOString()
+        });
+
+        await syncEnrollmentRecord(studentId, {
+            ...student,
+            class: lastClass,
+            academicYear: activeYear,
+            status: 'Discontinued'
+        });
+
+        if (generateTc) {
+            const tcRef = doc(collection(db, `${BASE_PATH}/transferCertificates`));
+            await setDoc(tcRef, {
+                studentId: studentId,
+                admissionNo: student.adm || '',
+                studentName: student.name || '',
+                exitClass: lastClass,
+                academicYear: activeYear,
+                issueDate: exitDate,
+                reason: exitReason || 'Discontinued',
+                status: 'Draft',
+                createdAt: new Date().toISOString(),
+                createdBy: currentAdminEmail || 'Admin'
+            });
+        }
+
+        await logAuditEvent({
+            category: 'student',
+            action: 'student.discontinue',
+            entityType: 'student',
+            entityId: studentId,
+            message: `Student discontinued: ${student.name} (Adm: ${student.adm || '-'}, Class: ${lastClass}). Preserved dues: ₹${preservedDues}.`
+        });
+
+        showToast(`Student ${student.name} successfully discontinued.`, 'success');
+
+        exitReasonInput.value = '';
+        generateTcCheckbox.checked = false;
+        studentSelect.value = '';
+        updateContinuityStudentPreview('');
+        populateContinuityStudentDropdown(document.getElementById('continuity-class-select').value);
+
+        renderContinuityPage();
+        refreshAcademicYearScopedData();
+
+    } catch (err) {
+        console.error('Failed to discontinue student:', err);
+        alert('Failed to discontinue student: ' + err.message);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-user-minus"></i> <span>Discontinue Student</span>';
+        }
+    }
+};
+
+const renderContinuityPage = () => {
+    const activeYearDisplay = document.getElementById('continuity-active-year-display');
+    if (activeYearDisplay) activeYearDisplay.textContent = getActiveAcademicYearLabel();
+
+    const exitDateInput = document.getElementById('continuity-exit-date');
+    if (exitDateInput && !exitDateInput.value) {
+        exitDateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    populateContinuityClassDropdown();
+
+    const searchTerm = (document.getElementById('continuity-search-input')?.value || '').toLowerCase().trim();
+    const classFilter = document.getElementById('continuity-class-filter')?.value || 'all';
+    const tbody = document.getElementById('discontinued-students-table-body');
+    const metricTotalEl = document.getElementById('continuity-metric-total');
+    const metricDuesEl = document.getElementById('continuity-metric-dues');
+
+    const allDiscontinued = (rawStudents || []).filter(s => normalizeStudentStatus(s.status) === 'Discontinued');
+
+    const totalDues = allDiscontinued.reduce((sum, s) => sum + calculateStudentPreservedDues(s), 0);
+    if (metricTotalEl) metricTotalEl.textContent = allDiscontinued.length;
+    if (metricDuesEl) metricDuesEl.textContent = `₹${totalDues.toLocaleString('en-IN')}`;
+
+    const filtered = allDiscontinued.filter(s => {
+        const exitClass = s.discontinuationDetails?.lastClass || s.class || '';
+        if (classFilter !== 'all' && exitClass !== classFilter) return false;
+        if (searchTerm) {
+            const nameMatch = (s.name || '').toLowerCase().includes(searchTerm);
+            const admMatch = String(s.adm || '').toLowerCase().includes(searchTerm);
+            const reasonMatch = (s.discontinuationDetails?.reason || '').toLowerCase().includes(searchTerm);
+            return nameMatch || admMatch || reasonMatch;
+        }
+        return true;
+    });
+
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-8 text-center text-slate-500 font-medium">
+                    ${allDiscontinued.length === 0 ? 'No discontinued students recorded in the institution.' : 'No discontinued students match your search filter.'}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    filtered.sort((a, b) => {
+        const dateA = a.discontinuationDetails?.date || a.updatedAt || '';
+        const dateB = b.discontinuationDetails?.date || b.updatedAt || '';
+        return dateB.localeCompare(dateA);
+    });
+
+    tbody.innerHTML = filtered.map(s => {
+        const details = s.discontinuationDetails || {};
+        const exitClass = details.lastClass || s.class || '--';
+        const exitYear = details.academicYear || s.academicYear || '--';
+        const exitDate = details.date ? formatDateDisplay(details.date) : '--';
+        const reason = details.reason || 'Not specified';
+        const gapText = details.date ? calculateGapDurationText(details.date, null) : '--';
+        const preservedDues = calculateStudentPreservedDues(s);
+        const photoUrl = resolveSafePhotoUrl(s.photoUrl || s.photo);
+
+        return `
+            <tr class="hover:bg-slate-50/70 transition">
+                <td class="py-3 px-4">
+                    <div class="flex items-center gap-3">
+                        <img src="${escapeHtml(photoUrl)}" alt="Photo" class="w-9 h-9 rounded-full object-cover border border-slate-200 bg-white shrink-0">
+                        <div class="min-w-0">
+                            <div class="font-extrabold text-slate-900 truncate">${escapeHtml(s.name)}</div>
+                            <div class="text-xs text-slate-500 font-mono space-x-1.5">
+                                <span>Adm: <b class="text-slate-700">${escapeHtml(s.adm || '--')}</b></span>
+                                <span>·</span>
+                                <span>${escapeHtml(s.gender || '--')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="py-3 px-4 font-mono text-xs">
+                    <div class="font-bold text-slate-800">${escapeHtml(exitClass)}</div>
+                    <div class="text-slate-500">${escapeHtml(exitYear)}</div>
+                </td>
+                <td class="py-3 px-4">
+                    <div class="text-xs font-mono tabular-nums text-slate-800">${escapeHtml(exitDate)}</div>
+                    <div class="text-xs text-slate-500 truncate max-w-xs" title="${escapeHtml(reason)}">${escapeHtml(reason)}</div>
+                </td>
+                <td class="py-3 px-4 font-mono text-xs tabular-nums text-slate-600">
+                    <span class="inline-block py-0.5 px-2 rounded bg-slate-100 text-slate-700 border border-slate-200/80">${escapeHtml(gapText)}</span>
+                </td>
+                <td class="py-3 px-4 text-right font-mono tabular-nums font-bold text-rose-700">
+                    ₹${preservedDues.toLocaleString('en-IN')}
+                </td>
+                <td class="py-3 px-4 text-right">
+                    <div class="flex items-center justify-end gap-1.5">
+                        <button type="button" class="btn-open-readmit px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1 cursor-pointer" data-id="${s.id}" title="Re-admit Student">
+                            <i class="fas fa-user-plus text-[10px]"></i>
+                            <span>Re-admit</span>
+                        </button>
+                        <button type="button" class="btn-view-continuity px-2.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer" data-id="${s.id}" title="View Lifecycle History">
+                            <i class="fas fa-clock-rotate-left text-[11px] text-slate-500"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.querySelectorAll('.btn-open-readmit').forEach(btn => {
+        btn.addEventListener('click', () => openReadmitModal(btn.dataset.id));
+    });
+    tbody.querySelectorAll('.btn-view-continuity').forEach(btn => {
+        btn.addEventListener('click', () => openContinuityHistoryModal(btn.dataset.id));
+    });
+};
+
+const openReadmitModal = (studentId) => {
+    const modal = document.getElementById('readmission-popup');
+    if (!modal) return;
+
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    if (!student) {
+        alert('Student not found.');
+        return;
+    }
+
+    document.getElementById('readmit-student-id').value = student.id;
+    document.getElementById('readmit-student-photo').src = resolveSafePhotoUrl(student.photoUrl || student.photo);
+    document.getElementById('readmit-student-name').textContent = student.name || 'Unknown';
+    document.getElementById('readmit-student-adm').textContent = student.adm || '--';
+
+    const details = student.discontinuationDetails || {};
+    const exitClass = details.lastClass || student.class || '--';
+    const exitDate = details.date || '';
+    const exitYear = details.academicYear || student.academicYear || '';
+    const exitReason = details.reason || '';
+
+    document.getElementById('readmit-student-exit-class').textContent = exitClass;
+    document.getElementById('readmit-student-exit-date').textContent = exitDate ? formatDateDisplay(exitDate) : '--';
+    if (exitReason) {
+        document.getElementById('readmit-student-exit-reason').textContent = exitReason;
+        document.getElementById('readmit-student-exit-reason-wrap').classList.remove('hidden');
+    } else {
+        document.getElementById('readmit-student-exit-reason-wrap').classList.add('hidden');
+    }
+
+    const targetYearSelect = document.getElementById('readmit-target-year');
+    const availableYears = (academicYears || []).map(y => y.label).filter(Boolean);
+    const activeYear = getActiveAcademicYearLabel();
+    if (!availableYears.includes(activeYear)) availableYears.unshift(activeYear);
+
+    targetYearSelect.innerHTML = availableYears.map(yr => {
+        const isCurrent = yr === activeYear ? ' (Active Year)' : '';
+        return `<option value="${escapeHtml(yr)}">${escapeHtml(yr)}${isCurrent}</option>`;
+    }).join('');
+    targetYearSelect.value = activeYear;
+
+    const updateTargetClassAndGap = () => {
+        const selectedTargetYear = targetYearSelect.value;
+        const targetClassSelect = document.getElementById('readmit-target-class');
+        const yearClasses = getClassesForYear(selectedTargetYear);
+
+        targetClassSelect.innerHTML = '<option value="">Select Target Class &amp; Division...</option>' +
+            yearClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
+        const matchDigits = exitClass.match(/\d+/);
+        if (matchDigits) {
+            const nextClassNum = parseInt(matchDigits[0], 10) + 1;
+            const suggestedClass = yearClasses.find(c => c.includes(String(nextClassNum)));
+            if (suggestedClass) targetClassSelect.value = suggestedClass;
+        }
+
+        const missedYears = getMissedAcademicYears(exitYear, selectedTargetYear);
+        const returnDateVal = document.getElementById('readmit-return-date').value;
+        const gapDurationText = exitDate ? calculateGapDurationText(exitDate, returnDateVal) : 'Unknown';
+
+        const gapBadgeEl = document.getElementById('readmit-gap-badge');
+        const gapSummaryEl = document.getElementById('readmit-gap-summary');
+        if (gapBadgeEl) gapBadgeEl.textContent = gapDurationText;
+
+        if (gapSummaryEl) {
+            if (missedYears.length > 0) {
+                gapSummaryEl.innerHTML = `<b>${missedYears.length} Missed Academic Year(s):</b> ${missedYears.join(' · ')}<br><span class="text-[11px] text-emerald-700">Student was on academic leave during these years.</span>`;
+            } else {
+                gapSummaryEl.textContent = `Returning within the same or immediate consecutive academic cycle. Inactive Gap: ${gapDurationText}.`;
+            }
+        }
+
+        const preservedDues = calculateStudentPreservedDues(student, exitDate);
+        document.getElementById('readmit-preserved-dues').textContent = `₹${preservedDues.toLocaleString('en-IN')}`;
+    };
+
+    targetYearSelect.onchange = updateTargetClassAndGap;
+
+    const returnDateInput = document.getElementById('readmit-return-date');
+    returnDateInput.value = new Date().toISOString().split('T')[0];
+    returnDateInput.onchange = updateTargetClassAndGap;
+
+    document.getElementById('readmit-notes').value = '';
+
+    updateTargetClassAndGap();
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+const handleExecuteReadmission = async (e) => {
+    e.preventDefault();
+    const studentId = document.getElementById('readmit-student-id').value;
+    const targetYear = document.getElementById('readmit-target-year').value;
+    const targetClass = document.getElementById('readmit-target-class').value;
+    const returnDate = document.getElementById('readmit-return-date').value;
+    const readmitNotes = (document.getElementById('readmit-notes').value || '').trim();
+    const commitBtn = document.getElementById('readmit-commit-btn');
+
+    if (!studentId || !targetYear || !targetClass || !returnDate) {
+        alert('Please fill all required fields: Target Academic Year, Target Class, and Return Date.');
+        return;
+    }
+
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    if (!student) {
+        alert('Student not found.');
+        return;
+    }
+
+    const exitYear = student.discontinuationDetails?.academicYear || student.academicYear || '';
+    const missedYears = getMissedAcademicYears(exitYear, targetYear);
+    const preservedDues = calculateStudentPreservedDues(student);
+
+    const confirmMsg = `Confirm Re-admission for:\n\n` +
+        `• Student: ${student.name} (Adm: ${student.adm || '--'})\n` +
+        `• Target Academic Year: ${targetYear}\n` +
+        `• New Class: ${targetClass}\n` +
+        `• Return Date: ${formatDateDisplay(returnDate)}\n` +
+        `• Missed Years: ${missedYears.length ? missedYears.join(', ') : 'None'}\n` +
+        `• Preserved Prior Dues: ₹${preservedDues}\n\n` +
+        `The student will become Active in ${targetClass}. Zero fees will be charged for gap years.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        if (commitBtn) {
+            commitBtn.disabled = true;
+            commitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Re-admitting...</span>';
+        }
+
+        const currentAcademicYearsMap = student.academicYears && typeof student.academicYears === 'object'
+            ? { ...student.academicYears }
+            : {};
+
+        currentAcademicYearsMap[targetYear] = {
+            class: targetClass,
+            status: 'Active',
+            reAdmittedAt: returnDate,
+            notes: readmitNotes
+        };
+
+        const currentContinuityLog = Array.isArray(student.continuityLog)
+            ? [...student.continuityLog]
+            : [];
+
+        currentContinuityLog.unshift({
+            id: 'event_' + Date.now(),
+            type: 'readmit',
+            timestamp: new Date().toISOString(),
+            date: returnDate,
+            academicYear: targetYear,
+            class: targetClass,
+            reason: readmitNotes || 'Re-admitted after leave',
+            adminEmail: currentAdminEmail || 'Admin',
+            gapYears: missedYears,
+            priorBalance: preservedDues
+        });
+
+        const readmissionDetails = {
+            date: returnDate,
+            targetYear,
+            targetClass,
+            reason: readmitNotes || 'Re-admitted after leave',
+            gapYears: missedYears,
+            recordedBy: currentAdminEmail || 'Admin',
+            recordedAt: new Date().toISOString()
+        };
+
+        const studentRef = doc(db, `${BASE_PATH}/students`, studentId);
+        await updateDoc(studentRef, {
+            status: 'Active',
+            class: targetClass,
+            studentClass: targetClass,
+            academicYear: targetYear,
+            readmissionDetails,
+            academicYears: currentAcademicYearsMap,
+            continuityLog: currentContinuityLog,
+            updatedAt: new Date().toISOString()
+        });
+
+        await syncEnrollmentRecord(studentId, {
+            ...student,
+            class: targetClass,
+            academicYear: targetYear,
+            status: 'Active'
+        });
+
+        await logAuditEvent({
+            category: 'student',
+            action: 'student.readmit',
+            entityType: 'student',
+            entityId: studentId,
+            message: `Student re-admitted: ${student.name} (Adm: ${student.adm || '-'}) to Class ${targetClass} in ${targetYear}. Missed gap: ${missedYears.join(', ') || 'None'}.`
+        });
+
+        showToast(`Student ${student.name} successfully re-admitted to ${targetClass}!`, 'success');
+
+        document.getElementById('readmission-popup').classList.add('hidden');
+        document.getElementById('readmission-popup').classList.remove('flex');
+
+        renderContinuityPage();
+        refreshAcademicYearScopedData();
+
+    } catch (err) {
+        console.error('Failed to re-admit student:', err);
+        alert('Failed to re-admit student: ' + err.message);
+    } finally {
+        if (commitBtn) {
+            commitBtn.disabled = false;
+            commitBtn.innerHTML = '<i class="fas fa-user-check"></i> <span>Confirm Re-admission</span>';
+        }
+    }
+};
+
+const openContinuityHistoryModal = (studentId) => {
+    const modal = document.getElementById('continuity-history-popup');
+    if (!modal) return;
+
+    const student = (rawStudents || []).find(s => s.id === studentId);
+    if (!student) {
+        alert('Student not found.');
+        return;
+    }
+
+    document.getElementById('history-student-photo').src = resolveSafePhotoUrl(student.photoUrl || student.photo);
+    document.getElementById('history-student-name').textContent = student.name || 'Unknown';
+    document.getElementById('history-student-adm').textContent = student.adm || '--';
+    document.getElementById('history-student-status').textContent = student.status || 'Active';
+    document.getElementById('history-student-guardian').textContent = student.guardian || student.father || '--';
+    document.getElementById('history-student-phone').textContent = student.phone || student.mobile || '--';
+
+    const timelineContainer = document.getElementById('continuity-history-timeline');
+    const logs = Array.isArray(student.continuityLog) ? student.continuityLog : [];
+
+    if (logs.length === 0) {
+        const exitDetails = student.discontinuationDetails;
+        if (exitDetails) {
+            timelineContainer.innerHTML = `
+                <div class="relative pl-6 pb-3 border-l-2 border-rose-400">
+                    <span class="absolute -left-2 top-0 w-4 h-4 rounded-full bg-rose-600 border-2 border-white"></span>
+                    <div class="font-extrabold text-slate-800">Discontinued</div>
+                    <div class="text-[11px] text-slate-500 font-mono">${formatDateDisplay(exitDetails.date)} · ${escapeHtml(exitDetails.academicYear || '')} · Class ${escapeHtml(exitDetails.lastClass || '')}</div>
+                    <div class="text-xs text-slate-700 mt-1 italic">"${escapeHtml(exitDetails.reason || 'No notes')}"</div>
+                    <div class="text-[10px] text-slate-400 mt-0.5">Recorded by: ${escapeHtml(exitDetails.recordedBy || 'Admin')}</div>
+                </div>
+            `;
+        } else {
+            timelineContainer.innerHTML = `
+                <div class="p-4 text-center text-slate-400 italic">No continuity transition events recorded yet.</div>
+            `;
+        }
+    } else {
+        timelineContainer.innerHTML = logs.map((log) => {
+            const isDiscontinue = log.type === 'discontinue';
+            const dotColor = isDiscontinue ? 'bg-rose-600' : 'bg-emerald-600';
+            const borderColor = isDiscontinue ? 'border-rose-300' : 'border-emerald-300';
+            const title = isDiscontinue ? 'Student Discontinued (Departure)' : 'Student Re-admitted (Return)';
+            const titleColor = isDiscontinue ? 'text-rose-800' : 'text-emerald-800';
+
+            return `
+                <div class="relative pl-6 pb-4 border-l-2 ${borderColor}">
+                    <span class="absolute -left-2 top-0.5 w-4 h-4 rounded-full ${dotColor} border-2 border-white shadow-xs"></span>
+                    <div class="flex items-center justify-between">
+                        <span class="font-extrabold text-xs ${titleColor}">${title}</span>
+                        <span class="text-[10px] font-mono tabular-nums text-slate-500">${log.date ? formatDateDisplay(log.date) : formatDateDisplay(log.timestamp)}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600 font-mono mt-0.5">
+                        Year: <b>${escapeHtml(log.academicYear || '--')}</b> · Class: <b>${escapeHtml(log.class || '--')}</b>
+                        ${log.priorBalance !== undefined ? ` · Preserved Dues: <b class="text-rose-700">₹${Number(log.priorBalance).toLocaleString('en-IN')}</b>` : ''}
+                    </div>
+                    ${log.reason ? `<div class="text-xs text-slate-700 mt-1 bg-slate-50 p-2 rounded border border-slate-100 italic">"${escapeHtml(log.reason)}"</div>` : ''}
+                    ${Array.isArray(log.gapYears) && log.gapYears.length > 0 ? `<div class="text-[10px] text-emerald-700 mt-1 font-mono">Missed Cycle: ${log.gapYears.join(', ')}</div>` : ''}
+                    <div class="text-[10px] text-slate-400 mt-1">Recorded by: ${escapeHtml(log.adminEmail || 'Admin')}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+// Wire Continuity Event Listeners
+document.getElementById('continuity-class-select')?.addEventListener('change', (e) => {
+    populateContinuityStudentDropdown(e.target.value);
+});
+document.getElementById('continuity-student-select')?.addEventListener('change', (e) => {
+    updateContinuityStudentPreview(e.target.value);
+});
+document.getElementById('continuity-exit-date')?.addEventListener('change', () => {
+    if (continuitySelectedStudent) updateContinuityStudentPreview(continuitySelectedStudent.id);
+});
+document.getElementById('discontinue-student-form')?.addEventListener('submit', handleDiscontinueStudent);
+document.getElementById('continuity-search-input')?.addEventListener('input', renderContinuityPage);
+document.getElementById('continuity-class-filter')?.addEventListener('change', renderContinuityPage);
+
+document.getElementById('readmit-student-form')?.addEventListener('submit', handleExecuteReadmission);
+document.getElementById('readmit-modal-close-btn')?.addEventListener('click', () => {
+    document.getElementById('readmission-popup')?.classList.add('hidden');
+    document.getElementById('readmission-popup')?.classList.remove('flex');
+});
+document.getElementById('readmit-cancel-btn')?.addEventListener('click', () => {
+    document.getElementById('readmission-popup')?.classList.add('hidden');
+    document.getElementById('readmission-popup')?.classList.remove('flex');
+});
+
+document.getElementById('continuity-history-close-btn')?.addEventListener('click', () => {
+    document.getElementById('continuity-history-popup')?.classList.add('hidden');
+    document.getElementById('continuity-history-popup')?.classList.remove('flex');
+});
+document.getElementById('continuity-history-done-btn')?.addEventListener('click', () => {
+    document.getElementById('continuity-history-popup')?.classList.add('hidden');
+    document.getElementById('continuity-history-popup')?.classList.remove('flex');
 });
 
 // --- 4. MANAGE CLASSES ---

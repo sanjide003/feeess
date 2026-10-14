@@ -608,9 +608,11 @@ window.openStudentProfile = (id) => {
         const lowerStatus = statusVal.toLowerCase();
         statusEl.className = lowerStatus === 'active'
             ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200'
-            : lowerStatus === 'graduated'
-                ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-200'
-                : 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-200 text-slate-700 border border-slate-300';
+            : lowerStatus === 'discontinued'
+                ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200'
+                : lowerStatus === 'graduated'
+                    ? 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-200'
+                    : 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-slate-200 text-slate-700 border border-slate-300';
     }
 
     // Fee Concession & Group Details
@@ -1820,6 +1822,7 @@ const populateStudentSuggestions = (searchTerm = '') => {
                         <span>${escapeHtml(s.name)}</span>
                         <span class="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-800 border border-blue-200">Class: ${escapeHtml(s.class || '-')}</span>
                         ${s.gender ? `<span class="text-[10px] font-bold text-slate-500">(${escapeHtml(s.gender.charAt(0))})</span>` : ''}
+                        ${String(s.status || '').toLowerCase() === 'discontinued' ? `<span class="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">Discontinued</span>` : ''}
                     </div>
                     <div class="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-2">
                         <span>Adm: <b class="text-slate-700">${escapeHtml(s.adm || '-')}</b></span>

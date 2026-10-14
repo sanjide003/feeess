@@ -215,6 +215,11 @@ service cloud.firestore {
       allow write: if isAdmin(institutionId) || isSignedIn();
     }
 
+    match /institutions/{institutionId}/transferCertificates/{docId} {
+      allow read: if true;
+      allow write: if isAdmin(institutionId) || isSignedIn();
+    }
+
     match /institutions/{institutionId}/{document=**} {
       allow read, write: if false;
     }
