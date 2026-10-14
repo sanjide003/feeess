@@ -906,57 +906,63 @@ const renderAcademicYears = () => {
             }
 
             return `
-                <div class="flex flex-col gap-4 bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:border-gray-300 transition" data-card-year="${escapeHtml(year.label)}">
-                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div>
-                            <div class="flex items-center gap-3 flex-wrap">
-                                <span class="text-lg font-extrabold text-gray-900">${escapeHtml(year.label)}</span>
-                                ${badgeHtml}
-                            </div>
-                            <div class="text-sm text-gray-500 mt-1">Students in this year are managed under year-first records and class structures.</div>
-                            <div class="text-xs text-gray-500 mt-1">Fee/Result Months: ${startMonthLabel} → ${endMonthLabel}</div>
+                <div class="flex flex-col justify-between bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:border-gray-300 transition" data-card-year="${escapeHtml(year.label)}">
+                    <!-- Top row: Heading (Year) and 3-dot menu button at top-right corner -->
+                    <div class="flex items-center justify-between gap-2 border-b border-gray-100 pb-2.5">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-calendar-alt text-blue-600"></i>
+                            <span class="text-lg font-extrabold text-gray-900">${escapeHtml(year.label)}</span>
                         </div>
-                        <div class="flex flex-wrap gap-2 items-center">
-                            <div class="flex items-center gap-2">
-                                <label class="text-xs font-bold text-gray-600">Status:</label>
-                                <select class="year-status-select p-2 border border-gray-300 rounded-lg text-xs font-bold bg-white text-gray-800 focus:border-blue-500 outline-none transition" data-label="${escapeHtml(year.label)}" data-initial-status="${currentStatus}">
-                                    <option value="current" ${currentStatus === 'current' ? 'selected' : ''}>Current Academic Year</option>
-                                    <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>Active</option>
-                                    <option value="archived" ${currentStatus === 'archived' ? 'selected' : ''}>Archive</option>
-                                </select>
-                                <button type="button" class="save-year-status-btn hidden px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition items-center gap-1.5" data-label="${escapeHtml(year.label)}">
-                                    <i class="fas fa-save"></i> <span>Save</span>
-                                </button>
-                            </div>
-                            <div class="relative ml-1">
-                                <button class="year-menu-toggle w-9 h-9 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600" data-label="${escapeHtml(year.label)}" title="More actions" aria-label="More actions">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <div class="year-menu hidden absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-                                    <button class="year-edit-btn w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50" data-label="${escapeHtml(year.label)}">Edit months</button>
-                                    <button class="year-delete-btn w-full text-left px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50" data-label="${escapeHtml(year.label)}">Delete year</button>
-                                </div>
+                        <div class="relative">
+                            <button class="year-menu-toggle w-8 h-8 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 flex items-center justify-center transition" data-label="${escapeHtml(year.label)}" title="More actions" aria-label="More actions">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div class="year-menu hidden absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
+                                <button class="year-edit-btn w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-blue-50 flex items-center gap-2" data-label="${escapeHtml(year.label)}"><i class="fas fa-edit text-blue-600"></i> Edit months</button>
+                                <button class="year-delete-btn w-full text-left px-3.5 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 flex items-center gap-2 border-t border-gray-100" data-label="${escapeHtml(year.label)}"><i class="fas fa-trash text-red-600"></i> Delete year</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Academic Year Counters: Total Students, Total Classes, Total Staff -->
-                    <div class="grid grid-cols-3 gap-3 pt-3 border-t border-gray-100">
-                        <div class="bg-blue-50/80 border border-blue-100 rounded-xl p-2.5 text-center">
-                            <div class="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Total Students</div>
-                            <div class="text-lg font-extrabold text-blue-900 mt-0.5">${totalStudentsCount}</div>
+                    <!-- Second row: Status badge on left, Status dropdown select & Save on right -->
+                    <div class="flex items-center justify-between gap-2 mt-3 flex-wrap">
+                        <div>
+                            ${badgeHtml}
                         </div>
-                        <div class="bg-indigo-50/80 border border-indigo-100 rounded-xl p-2.5 text-center">
-                            <div class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Total Classes</div>
-                            <div class="text-lg font-extrabold text-indigo-900 mt-0.5">${totalClassesCount}</div>
-                        </div>
-                        <div class="bg-emerald-50/80 border border-emerald-100 rounded-xl p-2.5 text-center">
-                            <div class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Total Staff</div>
-                            <div class="text-lg font-extrabold text-emerald-900 mt-0.5">${totalStaffCount}</div>
+                        <div class="flex items-center gap-1.5">
+                            <select class="year-status-select px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs font-bold bg-white text-gray-800 focus:border-blue-500 outline-none transition" data-label="${escapeHtml(year.label)}" data-initial-status="${currentStatus}">
+                                <option value="current" ${currentStatus === 'current' ? 'selected' : ''}>Current Academic Year</option>
+                                <option value="active" ${currentStatus === 'active' ? 'selected' : ''}>Active</option>
+                                <option value="archived" ${currentStatus === 'archived' ? 'selected' : ''}>Archive</option>
+                            </select>
+                            <button type="button" class="save-year-status-btn hidden px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition items-center gap-1" data-label="${escapeHtml(year.label)}">
+                                <i class="fas fa-save"></i> <span>Save</span>
+                            </button>
                         </div>
                     </div>
-                </div>
-            `;
+
+                    <!-- Month Span: only month to month under status -->
+                    <div class="text-xs font-semibold text-gray-600 mt-2.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                        <i class="fas fa-clock text-blue-500 text-xs"></i>
+                        <span>Months: <strong class="text-gray-800">${startMonthLabel}</strong> → <strong class="text-gray-800">${endMonthLabel}</strong></span>
+                    </div>
+
+                    <!-- Academic Year Counters: Total Students, Total Classes, Total Staff -->
+                    <div class="grid grid-cols-3 gap-2 pt-3 mt-3 border-t border-gray-100 text-center">
+                        <div class="bg-blue-50/80 border border-blue-100 rounded-lg p-2">
+                            <div class="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Students</div>
+                            <div class="text-base font-extrabold text-blue-900 mt-0.5">${totalStudentsCount}</div>
+                        </div>
+                        <div class="bg-indigo-50/80 border border-indigo-100 rounded-lg p-2">
+                            <div class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Classes</div>
+                            <div class="text-base font-extrabold text-indigo-900 mt-0.5">${totalClassesCount}</div>
+                        </div>
+                        <div class="bg-emerald-50/80 border border-emerald-100 rounded-lg p-2">
+                            <div class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Staff</div>
+                            <div class="text-base font-extrabold text-emerald-900 mt-0.5">${totalStaffCount}</div>
+                        </div>
+                    </div>
+                </div>`;
         }).join('');
 };
 const openAcademicYearEditPopup = (yearLabel = '') => {
@@ -2025,38 +2031,64 @@ const renderStaffList = () => {
             : '';
 
         return `
-            <div class="flex flex-col sm:flex-row justify-between p-4 bg-white border border-gray-200 rounded-xl shadow-sm items-start sm:items-center gap-4 transition hover:shadow-md mb-2">
-                <div class="flex gap-4 items-center w-full sm:w-auto">
-                    <img src="${safePhoto}" class="w-14 h-14 rounded-full object-cover border-2 ${staffMember.type === 'Teacher' ? 'border-blue-200' : staffMember.type === 'Management' ? 'border-purple-200' : 'border-emerald-200'}" alt="${escapeHtml(staffMember.name || 'Staff member')}">
-                    <div>
-                        <b class="text-gray-900 text-lg">${escapeHtml(staffMember.name || '--')}</b>
-                        <div class="text-sm text-gray-500 font-medium mt-0.5"><i class="fas fa-briefcase text-gray-400 mr-1"></i> ${escapeHtml(staffMember.role || '--')}</div>
-                        <div class="flex flex-wrap gap-1.5 mt-1 items-center">
-                            <span class="text-[11px] text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-bold">${escapeHtml(typeLabel)}</span>
-                            ${staffMember.email ? `<span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-mono">Email: ${escapeHtml(staffMember.email)}</span>` : ''}
-                            ${customBadges}
-                        </div>
-                        <div class="mt-2 flex flex-wrap gap-1.5 items-center">
-                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-0.5">Classes:</span>
-                            ${dutyClassBadges}
-                            ${upiBadge}
-                        </div>
-                        <div class="mt-2 flex flex-wrap gap-1.5">
-                            ${staffMember.isActive ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fas fa-check-circle mr-1"></i>Active</span>' : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">Inactive</span>'}
-                            ${staffMember.showPublic !== false ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200"><i class="fas fa-globe mr-1"></i>Public Page</span>' : '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">Hidden Public</span>'}
-                            ${staffMember.canCollect !== false ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">1. Collection</span>' : ''}
-                            ${staffMember.canAccessWorksheet !== false ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">2. Worksheet</span>' : ''}
-                            ${staffMember.canManageResults ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">3. Result</span>' : ''}
-                            ${staffMember.canAccessAdmin ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">4. Admin${staffMember.actLikeSuperAdmin ? ' (Super)' : ''}</span>` : ''}
+            <div class="flex flex-col justify-between p-4 bg-white border border-gray-200 rounded-xl shadow-xs items-stretch gap-3 transition hover:shadow-md mb-2">
+                <!-- Top Header: Photo, Name, Role on left; View button on right -->
+                <div class="flex items-start justify-between gap-3 border-b border-gray-100 pb-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <img src="${safePhoto}" class="w-12 h-12 rounded-full object-cover shrink-0 border-2 ${staffMember.type === 'Teacher' ? 'border-blue-200' : staffMember.type === 'Management' ? 'border-purple-200' : 'border-emerald-200'}" alt="${escapeHtml(staffMember.name || 'Staff')}">
+                        <div class="min-w-0">
+                            <div class="font-bold text-gray-900 text-base leading-tight truncate">${escapeHtml(staffMember.name || '--')}</div>
+                            <div class="text-xs text-gray-500 font-semibold mt-0.5 truncate">${escapeHtml(staffMember.role || typeLabel || '--')}</div>
                         </div>
                     </div>
+                    <button class="staff-action-btn shrink-0 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs" data-action="view" data-id="${staffMember.id}" title="View Full Details">
+                        <i class="fas fa-eye text-xs"></i> <span>View</span>
+                    </button>
                 </div>
-                <div class="flex flex-wrap gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                    <button class="px-3.5 py-2 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold hover:bg-indigo-100 transition staff-action-btn flex items-center justify-center gap-1" data-action="duty" data-id="${staffMember.id}" title="Assign Duty Classes & UPI Details"><i class="fas fa-school"></i> Duty Classes &amp; UPI</button>
-                    <button class="px-3.5 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100 transition staff-action-btn" data-action="edit" data-id="${staffMember.id}"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="px-3.5 py-2 bg-violet-50 text-violet-700 rounded-lg text-xs font-bold hover:bg-violet-100 transition staff-action-btn" data-action="credential" data-id="${staffMember.id}"><i class="fas fa-key"></i> Login</button>
-                    <button class="px-3.5 py-2 ${isAct ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'} rounded-lg text-xs font-bold transition staff-action-btn" data-action="toggle" data-id="${staffMember.id}" data-next-state="${isAct ? 'false' : 'true'}"><i class="fas ${isAct ? 'fa-ban' : 'fa-check-circle'}"></i> ${isAct ? 'Deactivate' : 'Activate'}</button>
-                    <button class="px-3.5 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition staff-action-btn" data-action="delete" data-id="${staffMember.id}"><i class="fas fa-trash"></i></button>
+
+                <!-- Assigned Classes -->
+                <div class="space-y-1">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Classes:</div>
+                    <div class="flex flex-wrap gap-1.5 items-center">
+                        ${dutyClassBadges}
+                        ${upiBadge}
+                    </div>
+                </div>
+
+                <!-- Login Permissions Only -->
+                <div class="space-y-1">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Login Permissions:</div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${staffMember.canCollect !== false ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">1. Collection</span>' : ''}
+                        ${staffMember.canAccessWorksheet !== false ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">2. Worksheet</span>' : ''}
+                        ${staffMember.canManageResults ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">3. Result</span>' : ''}
+                        ${staffMember.canAccessAdmin ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">4. Admin${staffMember.actLikeSuperAdmin ? ' (Super)' : ''}</span>` : ''}
+                        ${(staffMember.canCollect === false && staffMember.canAccessWorksheet === false && !staffMember.canManageResults && !staffMember.canAccessAdmin) ? '<span class="text-[10px] text-gray-400 italic">No permissions</span>' : ''}
+                    </div>
+                </div>
+
+                <!-- Bottom Action Buttons: Single row, icon on top, name underneath -->
+                <div class="pt-3 border-t border-gray-100 grid grid-cols-5 gap-1.5 text-center">
+                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 transition shadow-2xs group" data-action="delete" data-id="${staffMember.id}" title="Delete Staff">
+                        <i class="fas fa-trash text-sm mb-1 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-[10px] font-bold leading-tight">Delete</span>
+                    </button>
+                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg ${isAct ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'} transition shadow-2xs group" data-action="toggle" data-id="${staffMember.id}" data-next-state="${isAct ? 'false' : 'true'}" title="${isAct ? 'Deactivate' : 'Activate'}">
+                        <i class="fas ${isAct ? 'fa-user-slash' : 'fa-user-check'} text-sm mb-1 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-[10px] font-bold leading-tight">${isAct ? 'Deactive' : 'Active'}</span>
+                    </button>
+                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 transition shadow-2xs group" data-action="credential" data-id="${staffMember.id}" title="Login Credentials">
+                        <i class="fas fa-key text-sm mb-1 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-[10px] font-bold leading-tight">Login</span>
+                    </button>
+                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition shadow-2xs group" data-action="duty" data-id="${staffMember.id}" title="Duty Classes & UPI">
+                        <i class="fas fa-school text-sm mb-1 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-[10px] font-bold leading-tight truncate w-full">Duty &amp; UPI</span>
+                    </button>
+                    <button class="staff-action-btn flex flex-col items-center justify-center p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition shadow-2xs group" data-action="edit" data-id="${staffMember.id}" title="Edit Staff Details">
+                        <i class="fas fa-edit text-sm mb-1 group-hover:scale-110 transition-transform"></i>
+                        <span class="text-[10px] font-bold leading-tight">Edit</span>
+                    </button>
                 </div>
             </div>`;
     }).join('');
@@ -2067,70 +2099,124 @@ const renderStaffList = () => {
     const customCategories = getAllStaffCategories().filter((c) => !CORE_STAFF_TYPES.includes(c.id));
     const categorySections = customCategories.map((category) => {
         const rows = sortByDisplayOrder(active.filter((s) => s.type === category.id));
-        return `<div class="card p-5 rounded-xl shadow-sm border border-emerald-100"><h2 class="text-xl font-bold mb-4 text-emerald-800 border-b border-emerald-100 pb-2"><i class="fas fa-users mr-2"></i>${escapeHtml(category.name)}</h2>${rows.length ? buildHTML(rows, true) : '<p class="text-sm text-gray-500 italic p-2">No active profiles in this category.</p>'}</div>`;
+        return `<div class="card p-5 rounded-xl shadow-sm border border-emerald-100"><h2 class="text-xl font-bold mb-4 text-emerald-800 border-b border-emerald-100 pb-2"><i class="fas fa-users mr-2"></i>${escapeHtml(category.name)}</h2>${rows.length ? `<div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">${buildHTML(rows, true)}</div>` : '<p class="text-sm text-gray-500 italic p-2">No active profiles in this category.</p>'}</div>`;
     }).join('');
     if (categoryCont) categoryCont.innerHTML = categorySections;
     const inactiveSections = getStaffTypeOptions().map((option) => {
         const rows = sortByDisplayOrder(inactive.filter((s) => s.type === option.value));
-        return `<h4 class="font-bold text-gray-700 mb-2 border-b pb-1">Inactive ${escapeHtml(option.label)}</h4><div class="mb-4">${rows.length ? buildHTML(rows, false) : '<p class="text-sm text-gray-500 italic">No inactive profiles.</p>'}</div>`;
+        return `<h4 class="font-bold text-gray-700 mb-2 border-b pb-1">Inactive ${escapeHtml(option.label)}</h4><div class="mb-4">${rows.length ? `<div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">${buildHTML(rows, false)}</div>` : '<p class="text-sm text-gray-500 italic">No inactive profiles.</p>'}</div>`;
     }).join('');
     inactCont.innerHTML = inactiveSections;
 };
 
-window.toggleStaffStatus = async (id, status) => {
-    if(!requirePermission('staff.manage')) return;
-    if(!confirm(`Set account to ${status ? 'Active' : 'Inactive'}?`)) return;
-    const staffRecord = allStaff.find((staffMember) => staffMember.id === id);
-    await updateDoc(doc(db, `${BASE_PATH}/staff`, id), { isActive: status });
-    if (staffRecord?.email) await syncStaffAccessRecord({ ...staffRecord, isActive: status });
-    await logAuditEvent({ category: 'security', action: 'staff.status', entityType: 'staff', entityId: id, message: `Staff account ${status ? 'activated' : 'deactivated'}.` });
-};
-window.deleteStaff = async (id) => {
-    if(!requirePermission('staff.manage')) return;
-    if(!confirm("Permanently delete this staff member?")) return;
-    const staffRecord = allStaff.find((staffMember) => staffMember.id === id);
-    await deleteDoc(doc(db, `${BASE_PATH}/staff`, id));
-    if (staffRecord?.email) await removeStaffAccessRecord(staffRecord.email);
-    await logAuditEvent({ category: 'security', action: 'staff.delete', entityType: 'staff', entityId: id, message: 'Staff record deleted.' });
+window.openStaffDetailsModal = (id) => {
+    const s = allStaff.find(st => st.id === id);
+    if (!s) return;
+    const modal = document.getElementById('staff-details-popup');
+    const container = document.getElementById('staff-details-content');
+    if (!modal || !container) return;
+
+    const safePhoto = resolveSafePhotoUrl(s.photo, 'https://via.placeholder.com/80?text=Staff');
+    const typeLabel = getStaffTypeLabel(s.type);
+    const categoryFields = getActiveFieldsForCategory(s.type);
+
+    const extraFieldsHtml = categoryFields
+        .filter((f) => !['name', 'role', 'photo', 'email', 'password', 'phone', 'address'].includes(f.key))
+        .map((f) => {
+            const val = s[f.key] ?? s.customFields?.[f.key] ?? '';
+            if (!val) return '';
+            return `<div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                <span class="block text-[10px] font-bold uppercase text-gray-500">${escapeHtml(f.label)}</span>
+                <span class="text-xs font-bold text-gray-800">${escapeHtml(String(val))}</span>
+            </div>`;
+        })
+        .filter(Boolean)
+        .join('');
+
+    const dutyClasses = Array.isArray(s.dutyClasses) ? s.dutyClasses.filter(Boolean) : [];
+    const dutyClassBadges = dutyClasses.length
+        ? dutyClasses.map((cls) => `<span class="text-xs font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200"><i class="fas fa-school mr-1"></i>${escapeHtml(cls)}</span>`).join(' ')
+        : '<span class="text-xs text-gray-400 italic">None assigned</span>';
+
+    const upiInfo = s.dutyPaymentDetails && (s.dutyPaymentDetails.upiId || s.dutyPaymentDetails.upiNumber)
+        ? `ID: ${s.dutyPaymentDetails.upiId || '--'}, Number: ${s.dutyPaymentDetails.upiNumber || '--'}`
+        : 'Not configured';
+
+    container.innerHTML = `
+        <div class="flex items-center gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <img src="${safePhoto}" class="w-16 h-16 rounded-full object-cover border-2 border-blue-200 shrink-0" alt="${escapeHtml(s.name || 'Staff')}">
+            <div class="min-w-0">
+                <h4 class="text-lg font-extrabold text-gray-900 leading-tight">${escapeHtml(s.name || '--')}</h4>
+                <div class="text-xs font-bold text-blue-700 mt-0.5">${escapeHtml(s.role || typeLabel || '--')}</div>
+                <div class="flex items-center gap-1.5 mt-1">
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white border border-slate-200 text-slate-700">${escapeHtml(typeLabel)}</span>
+                    <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${s.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-700'}">${s.isActive ? 'Active' : 'Inactive'}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                <span class="block text-[10px] font-bold uppercase text-gray-500">Phone Number</span>
+                <span class="text-xs font-bold text-gray-800">${escapeHtml(s.phone || 'Not provided')}</span>
+            </div>
+            <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                <span class="block text-[10px] font-bold uppercase text-gray-500">Email Address</span>
+                <span class="text-xs font-bold text-gray-800">${escapeHtml(s.email || 'Not provided')}</span>
+            </div>
+        </div>
+
+        ${s.address ? `
+        <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+            <span class="block text-[10px] font-bold uppercase text-gray-500">Address</span>
+            <span class="text-xs text-gray-800 font-medium">${escapeHtml(s.address)}</span>
+        </div>` : ''}
+
+        ${extraFieldsHtml ? `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            ${extraFieldsHtml}
+        </div>` : ''}
+
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+            <div>
+                <span class="block text-[10px] font-bold uppercase text-slate-500">Assigned Duty Classes</span>
+                <div class="flex flex-wrap gap-1.5 mt-1">${dutyClassBadges}</div>
+            </div>
+            <div class="pt-2 border-t border-slate-200">
+                <span class="block text-[10px] font-bold uppercase text-slate-500">UPI Payment Details</span>
+                <span class="text-xs font-semibold text-slate-700">${escapeHtml(upiInfo)}</span>
+            </div>
+        </div>
+
+        <div class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+            <span class="block text-[10px] font-bold uppercase text-indigo-700 mb-1.5">Portal Access Permissions</span>
+            <div class="flex flex-wrap gap-1.5">
+                ${s.canCollect !== false ? '<span class="text-xs font-bold px-2.5 py-1 rounded-md bg-green-100 text-green-800 border border-green-200">1. Fee Collection</span>' : ''}
+                ${s.canAccessWorksheet !== false ? '<span class="text-xs font-bold px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-200">2. Class Worksheet</span>' : ''}
+                ${s.canManageResults ? '<span class="text-xs font-bold px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-200">3. Result Portal</span>' : ''}
+                ${s.canAccessAdmin ? `<span class="text-xs font-bold px-2.5 py-1 rounded-md bg-violet-100 text-violet-800 border border-violet-200">4. Admin Panel${s.actLikeSuperAdmin ? ' (Super)' : ''}</span>` : ''}
+            </div>
+        </div>
+    `;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
 };
 
-window.openEditStaff = (id) => {
-    if(!requirePermission('staff.manage')) return;
-    const s = allStaff.find(st => st.id === id); if(!s) return;
-    editingStaffId = s.id;
-    renderStaffTypeControls();
-    const staffType = s.type || 'Teacher';
-    const typeSelect = document.getElementById('e-st-type');
-    if (typeSelect) typeSelect.value = staffType;
+document.getElementById('staff-details-close-btn')?.addEventListener('click', () => {
+    document.getElementById('staff-details-popup')?.classList.add('hidden');
+    document.getElementById('staff-details-popup')?.classList.remove('flex');
+});
+document.getElementById('staff-details-close-footer')?.addEventListener('click', () => {
+    document.getElementById('staff-details-popup')?.classList.add('hidden');
+    document.getElementById('staff-details-popup')?.classList.remove('flex');
+});
 
-    const initialValues = {
-        ...(s.customFields || {}),
-        name: s.name || '',
-        role: s.role || '',
-        phone: s.phone || '',
-        email: s.email || '',
-        password: s.password || '',
-        msr: s.msr || '',
-        address: s.address || '',
-        photo: s.photo || ''
-    };
-    renderDynamicStaffFormFields('e-st', staffType, initialValues);
-
-    document.getElementById('e-st-display-order').value = Math.max(1, Number(s.displayOrder || 999));
-    document.getElementById('e-st-active').checked = s.isActive !== false;
-    document.getElementById('e-st-show-public').checked = s.showPublic !== false;
-    document.getElementById('e-st-can-collect').checked = s.canCollect !== false;
-    document.getElementById('e-st-can-worksheet').checked = s.canAccessWorksheet !== false;
-    document.getElementById('e-st-can-manage-results').checked = s.canManageResults === true;
-    document.getElementById('e-st-can-access-admin').checked = s.canAccessAdmin === true;
-    const eSuperEl = document.getElementById('e-st-act-like-super-admin');
-    if (eSuperEl) eSuperEl.checked = s.actLikeSuperAdmin === true;
-    document.getElementById('edit-staff-popup').classList.remove('hidden'); document.getElementById('edit-staff-popup').classList.add('flex');
-};
 const handleStaffActionClick = (e) => {
     const button = e.target.closest('.staff-action-btn');
     if (!button) return;
     const { action, id, nextState } = button.dataset;
+    if (action === 'view') window.openStaffDetailsModal(id);
     if (action === 'duty') window.openStaffDutyModal(id);
     if (action === 'edit') window.openEditStaff(id);
     if (action === 'credential') window.resetStaffCredentials(id);
@@ -5889,6 +5975,16 @@ const renderFeeItemsManagement = () => {
         });
     const customItems = scopedFeeItems.filter((item) => item.type === 'custom');
 
+    const renderMonthlyItemCard = (item) => {
+        return `<div class="flex items-center justify-between p-3.5 bg-white border border-blue-100 hover:border-blue-300 rounded-xl shadow-2xs hover:shadow-xs transition drag-item" data-key="${item.key}">
+            <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 text-xs shadow-2xs"><i class="fas fa-calendar-alt"></i></span>
+                <span class="font-bold text-gray-800 text-sm truncate">${escapeHtml(item.name)}</span>
+            </div>
+            <span class="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0">Default</span>
+        </div>`;
+    };
+
     const renderItemCard = (item) => {
         let detailsHtml = '';
         if(item.type === 'custom') detailsHtml = `<div class="text-xs text-gray-500 mt-1">Scope: <span class="font-semibold text-blue-600 uppercase">${item.scope || 'GLOBAL'}</span> | Receipt Mandatory: <span class="font-semibold ${item.isReceiptMandatory ? 'text-red-500':'text-gray-400'}">${item.isReceiptMandatory ? 'YES':'NO'}</span></div>`;
@@ -5899,12 +5995,12 @@ const renderFeeItemsManagement = () => {
     };
 
     cont.innerHTML = `
-        <div class="mb-4">
-            <h4 class="text-sm font-bold text-blue-700 mb-2 uppercase tracking-wider">Default Months (${escapeHtml(activeYear)})</h4>
-            <div id="fee-items-monthly-list" class="space-y-3">${monthlyItems.map(renderItemCard).join('') || '<p class="text-xs text-gray-500 italic">Monthly defaults are not available.</p>'}</div>
+        <div class="mb-5">
+            <h4 class="text-sm font-bold text-blue-800 mb-2.5 uppercase tracking-wider flex items-center gap-2"><i class="fas fa-calendar-check text-blue-600"></i> Default Months (${escapeHtml(activeYear)})</h4>
+            <div id="fee-items-monthly-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${monthlyItems.map(renderMonthlyItemCard).join('') || '<p class="text-xs text-gray-500 italic col-span-full">Monthly defaults are not available.</p>'}</div>
         </div>
         <div>
-            <h4 class="text-sm font-bold text-emerald-700 mb-2 uppercase tracking-wider">Other Fee Items (${escapeHtml(activeYear)})</h4>
+            <h4 class="text-sm font-bold text-emerald-800 mb-2.5 uppercase tracking-wider flex items-center gap-2"><i class="fas fa-layer-group text-emerald-600"></i> Other Fee Items (${escapeHtml(activeYear)})</h4>
             <div id="fee-items-custom-list" class="space-y-3">${customItems.map(renderItemCard).join('') || '<p class="text-xs text-gray-500 italic">No custom fee items added yet.</p>'}</div>
         </div>
     `;
@@ -6165,28 +6261,32 @@ const initNoticeUploadControls = () => {
 const renderWebNotices = () => {
     const list = document.getElementById('web-notices-list');
     list.innerHTML = webContent.notices.length === 0
-        ? '<p class="text-sm italic text-gray-500 p-2">No active notices.</p>'
+        ? '<p class="text-sm italic text-gray-500 p-2 col-span-full">No active notices.</p>'
         : webContent.notices.map((notice, i) => {
             const n = normalizeNoticePayload(notice);
             const safeImg = (n.image && n.image.startsWith('data:image/')) ? n.image : sanitizeUrl(n.image);
             const hasHeading = Boolean(n.heading);
             const hasText = Boolean(n.text);
             return `
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 p-4 bg-white border border-gray-200 rounded-xl shadow-sm text-sm transition hover:shadow-md">
+            <div class="flex flex-col justify-between p-3.5 bg-white border border-gray-200 rounded-xl shadow-2xs hover:shadow-md hover:border-blue-200 text-sm transition">
                 <div class="text-gray-800 font-medium min-w-0 w-full break-words">
-                    <div class="flex flex-wrap items-center gap-2 mb-2">
-                        <span class="inline-flex bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-bold font-mono text-xs">${escapeHtml(n.date || '--')}</span>
-                        ${n.pinned ? '<span class="inline-flex bg-amber-100 text-amber-700 px-2 py-1 rounded-lg font-bold text-xs"><i class="fas fa-thumbtack mr-1"></i>Pinned</span>' : ''}
-                        ${safeImg ? '<span class="inline-flex bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-lg font-bold text-xs"><i class="fas fa-image mr-1"></i>Image Notice</span>' : ''}
+                    <!-- Top bar: Date & Badges on left, Edit & Delete buttons on right -->
+                    <div class="flex items-center justify-between gap-1.5 mb-2 pb-2 border-b border-gray-100">
+                        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                            <span class="inline-flex bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md font-bold font-mono text-[11px]">${escapeHtml(n.date || '--')}</span>
+                            ${n.pinned ? '<span class="inline-flex bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md font-bold text-[10px]"><i class="fas fa-thumbtack mr-1"></i>Pinned</span>' : ''}
+                            ${safeImg ? '<span class="inline-flex bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-md font-bold text-[10px]"><i class="fas fa-image mr-1"></i>Image</span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button class="text-blue-600 bg-blue-50 hover:bg-blue-100 w-7 h-7 rounded-lg flex items-center justify-center transition notice-action-btn" data-action="edit" data-index="${i}" title="Edit notice"><i class="fas fa-edit text-xs"></i></button>
+                            <button class="text-red-600 bg-red-50 hover:bg-red-100 w-7 h-7 rounded-lg flex items-center justify-center transition notice-action-btn" data-action="delete" data-index="${i}" title="Delete notice"><i class="fas fa-trash text-xs"></i></button>
+                        </div>
                     </div>
-                    ${hasHeading ? `<div class="font-extrabold text-gray-900 mb-1.5 text-base">${escapeHtml(n.heading)}</div>` : (!hasText && safeImg ? `<div class="text-xs font-bold text-slate-400 italic mb-1.5">Image-only Notice</div>` : '')}
-                    ${safeImg ? `<div class="my-2"><img src="${safeImg}" alt="${escapeHtml(n.heading || 'Notice image')}" class="max-h-52 w-auto rounded-lg border border-slate-200 object-contain bg-slate-50 shadow-xs"></div>` : ''}
-                    ${hasText ? `<div class="break-words leading-relaxed text-slate-700 ${expandedNoticeIndexes.has(i) ? '' : 'overflow-hidden'}" style="${expandedNoticeIndexes.has(i) ? '' : 'max-height: 6em;'}">${renderAdminNoticeTextWithLinks(n.text, 35)}</div>` : ''}
-                    ${(n.text || '').length > 160 ? `<button class="text-xs font-bold text-blue-700 mt-2 notice-toggle-btn" data-index="${i}">${expandedNoticeIndexes.has(i) ? 'Collapse' : 'Expand'}</button>` : ''}
-                </div>
-                <div class="flex items-center shrink-0">
-                    <button class="text-blue-500 bg-blue-50 hover:bg-blue-100 w-8 h-8 rounded-lg flex items-center justify-center transition inline-flex mr-2 notice-action-btn" data-action="edit" data-index="${i}"><i class="fas fa-edit"></i></button>
-                    <button class="text-red-500 bg-red-50 hover:bg-red-100 w-8 h-8 rounded-lg flex items-center justify-center transition inline-flex notice-action-btn" data-action="delete" data-index="${i}"><i class="fas fa-trash"></i></button>
+
+                    ${hasHeading ? `<div class="font-extrabold text-gray-900 mb-1.5 text-sm line-clamp-2">${escapeHtml(n.heading)}</div>` : (!hasText && safeImg ? `<div class="text-xs font-bold text-slate-400 italic mb-1.5">Image-only Notice</div>` : '')}
+                    ${safeImg ? `<div class="my-2"><img src="${safeImg}" alt="${escapeHtml(n.heading || 'Notice image')}" class="max-h-36 w-full rounded-lg border border-slate-200 object-cover bg-slate-50 shadow-xs"></div>` : ''}
+                    ${hasText ? `<div class="text-xs break-words leading-relaxed text-slate-700 ${expandedNoticeIndexes.has(i) ? '' : 'overflow-hidden'}" style="${expandedNoticeIndexes.has(i) ? '' : 'max-height: 4.5em;'}">${renderAdminNoticeTextWithLinks(n.text, 25)}</div>` : ''}
+                    ${(n.text || '').length > 100 ? `<button class="text-[11px] font-bold text-blue-700 mt-1.5 notice-toggle-btn" data-index="${i}">${expandedNoticeIndexes.has(i) ? 'Collapse' : 'Expand'}</button>` : ''}
                 </div>
             </div>
         `;

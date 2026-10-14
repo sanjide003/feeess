@@ -1182,7 +1182,7 @@
                                 <h3 class="text-base font-bold text-blue-900"><i class="fas fa-list-check mr-2"></i>Published Notices</h3>
                                 <span class="text-xs text-blue-600 font-medium">Pinned notices appear on top</span>
                             </div>
-                            <div id="web-notices-list" class="space-y-3"></div>
+                            <div id="web-notices-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
                         </div>
                     </div>
                 </div>
@@ -1345,6 +1345,27 @@
     </div>
 
     <!-- Modals -->
+    <!-- View Staff Details Modal -->
+    <div id="staff-details-popup" class="fixed inset-0 popup-overlay items-center justify-center hidden px-4 z-50">
+        <div class="card rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-auto bg-white max-h-[90vh] overflow-y-auto relative border border-slate-200">
+            <div class="flex items-center justify-between border-b pb-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm"><i class="fas fa-id-card"></i></span>
+                    <h3 class="text-lg font-bold text-gray-900">Staff Profile Details</h3>
+                </div>
+                <button type="button" id="staff-details-close-btn" class="text-gray-400 hover:text-gray-600 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div id="staff-details-content" class="space-y-4">
+                <!-- Dynamically populated in openStaffDetailsModal -->
+            </div>
+            <div class="border-t pt-3 mt-4 text-right">
+                <button type="button" id="staff-details-close-footer" class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-bold transition">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Staff Modal -->
     <div id="edit-staff-popup" class="fixed inset-0 popup-overlay items-center justify-center hidden px-4 z-50">
         <div class="card rounded-2xl shadow-2xl p-6 w-full max-w-2xl mx-auto bg-white max-h-[90vh] overflow-y-auto relative">
