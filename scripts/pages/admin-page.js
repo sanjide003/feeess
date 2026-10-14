@@ -2226,6 +2226,59 @@ const handleStaffActionClick = (e) => {
 document.getElementById('staff-management-page')?.addEventListener('click', handleStaffActionClick);
 document.getElementById('manage-staff-page')?.addEventListener('click', handleStaffActionClick);
 
+window.openEditStaff = (id) => {
+    if(!requirePermission('staff.manage')) return;
+    const staffRecord = allStaff.find(st => st.id === id);
+    if (!staffRecord) return;
+
+    editingStaffId = id;
+    renderStaffTypeControls();
+
+    const typeSelect = document.getElementById('e-st-type');
+    if (typeSelect) {
+        typeSelect.value = staffRecord.type || 'Teacher';
+    }
+
+    const badge = document.getElementById('e-st-active-category-badge');
+    if (badge) {
+        badge.textContent = `Category: ${getStaffTypeLabel(staffRecord.type)}`;
+    }
+
+    const orderInput = document.getElementById('e-st-display-order');
+    if (orderInput) {
+        orderInput.value = staffRecord.displayOrder || 999;
+    }
+
+    const activeCheck = document.getElementById('e-st-active');
+    if (activeCheck) activeCheck.checked = staffRecord.isActive !== false;
+
+    const publicCheck = document.getElementById('e-st-show-public');
+    if (publicCheck) publicCheck.checked = staffRecord.showPublic !== false;
+
+    const collectCheck = document.getElementById('e-st-can-collect');
+    if (collectCheck) collectCheck.checked = staffRecord.canCollect !== false;
+
+    const worksheetCheck = document.getElementById('e-st-can-worksheet');
+    if (worksheetCheck) worksheetCheck.checked = staffRecord.canAccessWorksheet !== false;
+
+    const resultsCheck = document.getElementById('e-st-can-manage-results');
+    if (resultsCheck) resultsCheck.checked = staffRecord.canManageResults === true;
+
+    const adminCheck = document.getElementById('e-st-can-access-admin');
+    if (adminCheck) adminCheck.checked = staffRecord.canAccessAdmin === true;
+
+    const superAdminCheck = document.getElementById('e-st-act-like-super-admin');
+    if (superAdminCheck) superAdminCheck.checked = staffRecord.actLikeSuperAdmin === true;
+
+    renderDynamicStaffFormFields('e-st', staffRecord.type || 'Teacher', staffRecord);
+
+    const popup = document.getElementById('edit-staff-popup');
+    if (popup) {
+        popup.classList.remove('hidden');
+        popup.classList.add('flex');
+    }
+};
+
 window.openStaffDutyModal = (id) => {
     if(!requirePermission('staff.manage')) return;
     const staffRecord = allStaff.find(st => st.id === id);
@@ -2348,9 +2401,20 @@ document.getElementById('staff-duty-save-btn')?.addEventListener('click', async 
 });
 document.getElementById('staff-filter-search')?.addEventListener('input', renderStaffList);
 document.getElementById('staff-filter-type')?.addEventListener('change', renderStaffList);
-document.getElementById('edit-staff-cancel').onclick = () => document.getElementById('edit-staff-popup').classList.add('hidden');
+const closeEditStaffModal = () => {
+    const popup = document.getElementById('edit-staff-popup');
+    if (popup) {
+        popup.classList.add('hidden');
+        popup.classList.remove('flex');
+    }
+    editingStaffId = null;
+};
+document.getElementById('edit-staff-cancel')?.addEventListener('click', closeEditStaffModal);
+document.getElementById('edit-staff-close-btn')?.addEventListener('click', closeEditStaffModal);
+
 document.getElementById('edit-staff-update').onclick = async () => {
     if(!requirePermission('staff.manage')) return;
+    if (!editingStaffId) return;
     const nextStaffRecord = extractAndValidateStaffForm('e-st');
     if (!nextStaffRecord) return;
     if(!confirm("Save changes?")) return;
@@ -2370,7 +2434,9 @@ document.getElementById('edit-staff-update').onclick = async () => {
     }
     await syncStaffAccessRecord(mergedRecord);
     await logAuditEvent({ category: 'security', action: 'staff.update', entityType: 'staff', entityId: editingStaffId, message: `Staff updated: ${mergedRecord.name}.` });
-    document.getElementById('edit-staff-popup').classList.add('hidden');
+    closeEditStaffModal();
+    renderStaffList();
+    showToast?.('Staff details updated successfully!', 'success');
 };
 
 window.resetStaffCredentials = async (id) => {
@@ -6382,20 +6448,95 @@ const getNextGalleryOrder = () => {
     return Math.max(...existingOrders) + 1;
 };
 
+let selectedGalleryFiles = [];
+
 const resetNewGalleryUploadForm = () => {
-    const preview = document.getElementById('new-gal-preview');
-    const placeholder = document.getElementById('new-gal-placeholder');
-    const clearBtn = document.getElementById('new-gal-clear-btn');
+    selectedGalleryFiles.forEach((item) => {
+        if (item.previewUrl && item.previewUrl.startsWith('blob:')) {
+            try { URL.revokeObjectURL(item.previewUrl); } catch (_err) {}
+        }
+    });
+    selectedGalleryFiles = [];
+
     const fileInput = document.getElementById('new-gal-file');
     const dataInput = document.getElementById('new-gal-data');
     const orderInput = document.getElementById('new-gal-order');
+    const queueContainer = document.getElementById('new-gal-queue-container');
+    const thumbnailsContainer = document.getElementById('new-gal-thumbnails');
+    const queueCountEl = document.getElementById('new-gal-queue-count');
+    const statusEl = document.getElementById('new-gal-status');
+    const progressBarContainer = document.getElementById('new-gal-progress-bar-container');
+    const progressBar = document.getElementById('new-gal-progress-bar');
+    const addBtn = document.getElementById('add-gal-btn');
+    const addBtnText = document.getElementById('add-gal-btn-text');
 
-    if (preview) { preview.src = ''; preview.classList.add('hidden'); }
-    if (placeholder) placeholder.classList.remove('hidden');
-    if (clearBtn) clearBtn.classList.add('hidden');
     if (fileInput) fileInput.value = '';
     if (dataInput) dataInput.value = '';
     if (orderInput) orderInput.value = getNextGalleryOrder();
+    if (queueContainer) queueContainer.classList.add('hidden');
+    if (thumbnailsContainer) thumbnailsContainer.innerHTML = '';
+    if (queueCountEl) queueCountEl.textContent = '0';
+    if (statusEl) statusEl.textContent = 'Ready to upload. Order numbers will automatically increment.';
+    if (progressBarContainer) progressBarContainer.classList.add('hidden');
+    if (progressBar) progressBar.style.width = '0%';
+    if (addBtn) addBtn.disabled = false;
+    if (addBtnText) addBtnText.textContent = 'Upload All Photos';
+};
+
+const renderGallerySelectedThumbnails = () => {
+    const thumbnailsContainer = document.getElementById('new-gal-thumbnails');
+    const queueContainer = document.getElementById('new-gal-queue-container');
+    const queueCountEl = document.getElementById('new-gal-queue-count');
+    const addBtnText = document.getElementById('add-gal-btn-text');
+    const orderInput = document.getElementById('new-gal-order');
+
+    if (!thumbnailsContainer || !queueContainer) return;
+
+    if (selectedGalleryFiles.length === 0) {
+        resetNewGalleryUploadForm();
+        return;
+    }
+
+    queueContainer.classList.remove('hidden');
+    if (queueCountEl) queueCountEl.textContent = String(selectedGalleryFiles.length);
+    if (addBtnText) addBtnText.textContent = `Upload All (${selectedGalleryFiles.length} Photos)`;
+
+    const startOrder = Number(orderInput?.value) || getNextGalleryOrder();
+
+    thumbnailsContainer.innerHTML = selectedGalleryFiles.map((item, idx) => {
+        const assignedOrder = startOrder + idx;
+        const sizeKb = Math.round(item.file.size / 1024);
+        return `
+            <div class="relative group bg-white rounded-lg border border-slate-200 overflow-hidden shadow-2xs p-1 flex flex-col justify-between">
+                <div class="relative h-20 w-full overflow-hidden rounded bg-slate-100 flex items-center justify-center">
+                    <img src="${item.previewUrl}" class="w-full h-full object-cover" alt="Selected photo ${idx + 1}">
+                    <span class="absolute top-1 left-1 bg-black/70 text-white font-mono text-[9px] px-1.5 py-0.5 rounded font-bold">#${assignedOrder}</span>
+                    <button type="button" class="remove-queue-file-btn absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600/90 hover:bg-red-700 text-white flex items-center justify-center text-[10px] shadow transition" data-id="${item.id}" title="Remove photo" aria-label="Remove photo">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="mt-1 px-0.5 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                    <span class="truncate max-w-[65px]" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</span>
+                    <span class="font-mono text-[9px] shrink-0 text-slate-400">${sizeKb} KB</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+const handleSelectedGalleryFiles = (files) => {
+    if (!files || files.length === 0) return;
+    const orderInput = document.getElementById('new-gal-order');
+    if (orderInput && (!orderInput.value || Number(orderInput.value) < 1)) {
+        orderInput.value = getNextGalleryOrder();
+    }
+    Array.from(files).forEach((file) => {
+        if (!file.type.startsWith('image/')) return;
+        const id = `gal_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const previewUrl = URL.createObjectURL(file);
+        selectedGalleryFiles.push({ file, previewUrl, id });
+    });
+    renderGallerySelectedThumbnails();
 };
 
 const renderWebGallery = () => {
@@ -6428,35 +6569,63 @@ const renderWebGallery = () => {
 };
 
 const initGalleryUploadControls = () => {
-    const uploadBtn = document.getElementById('new-gal-upload-btn');
+    const dropzone = document.getElementById('new-gal-dropzone');
     const fileInput = document.getElementById('new-gal-file');
     const clearBtn = document.getElementById('new-gal-clear-btn');
-    const preview = document.getElementById('new-gal-preview');
-    const placeholder = document.getElementById('new-gal-placeholder');
-    const dataInput = document.getElementById('new-gal-data');
+    const orderInput = document.getElementById('new-gal-order');
+    const thumbnailsContainer = document.getElementById('new-gal-thumbnails');
 
-    uploadBtn?.addEventListener('click', () => fileInput?.click());
+    dropzone?.addEventListener('click', (e) => {
+        if (e.target !== fileInput) fileInput?.click();
+    });
 
-    fileInput?.addEventListener('change', async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Compressing...';
-            const base64 = await compressImageFileToBase64(file, 50);
-            if (dataInput) dataInput.value = base64;
-            if (preview) {
-                preview.src = base64;
-                preview.classList.remove('hidden');
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone?.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('border-blue-500', 'bg-blue-100/50');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropzone?.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('border-blue-500', 'bg-blue-100/50');
+        });
+    });
+
+    dropzone?.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt?.files;
+        if (files && files.length) {
+            handleSelectedGalleryFiles(files);
+        }
+    });
+
+    fileInput?.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length) {
+            handleSelectedGalleryFiles(e.target.files);
+        }
+    });
+
+    orderInput?.addEventListener('input', () => {
+        if (selectedGalleryFiles.length > 0) {
+            renderGallerySelectedThumbnails();
+        }
+    });
+
+    thumbnailsContainer?.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.remove-queue-file-btn');
+        if (!removeBtn) return;
+        const id = removeBtn.dataset.id;
+        const idx = selectedGalleryFiles.findIndex(item => item.id === id);
+        if (idx !== -1) {
+            const removed = selectedGalleryFiles.splice(idx, 1)[0];
+            if (removed?.previewUrl?.startsWith('blob:')) {
+                try { URL.revokeObjectURL(removed.previewUrl); } catch (_err) {}
             }
-            if (placeholder) placeholder.classList.add('hidden');
-            if (clearBtn) clearBtn.classList.remove('hidden');
-        } catch (err) {
-            console.error('Gallery image compression failed:', err);
-            alert('Unable to compress image: ' + (err?.message || 'Error'));
-        } finally {
-            uploadBtn.disabled = false;
-            uploadBtn.innerHTML = '<i class="fas fa-upload mr-1"></i> Choose Photo';
+            renderGallerySelectedThumbnails();
         }
     });
 
@@ -6464,23 +6633,70 @@ const initGalleryUploadControls = () => {
         resetNewGalleryUploadForm();
     });
 
-    document.getElementById('add-gal-btn')?.addEventListener('click', () => {
+    document.getElementById('add-gal-btn')?.addEventListener('click', async () => {
         if (!requirePermission('website.manage')) return;
-        const photoData = document.getElementById('new-gal-data')?.value;
-        const orderInput = document.getElementById('new-gal-order');
-        const parsedOrder = Number(orderInput?.value);
-        const order = Number.isFinite(parsedOrder) && parsedOrder > 0 ? parsedOrder : getNextGalleryOrder();
-
-        if (!photoData) {
-            alert("Please select an image.");
+        if (selectedGalleryFiles.length === 0) {
+            alert("Please select at least one photo.");
             return;
         }
 
-        if (!confirm("Add image to gallery?")) return;
+        const count = selectedGalleryFiles.length;
+        if (!confirm(`Upload ${count} photo${count > 1 ? 's' : ''} to gallery? Photos will be compressed to 75KB with sequential display orders.`)) return;
+
+        const addBtn = document.getElementById('add-gal-btn');
+        const addBtnText = document.getElementById('add-gal-btn-text');
+        const statusEl = document.getElementById('new-gal-status');
+        const progressBarContainer = document.getElementById('new-gal-progress-bar-container');
+        const progressBar = document.getElementById('new-gal-progress-bar');
+        const clearBtnEl = document.getElementById('new-gal-clear-btn');
+
+        if (addBtn) addBtn.disabled = true;
+        if (clearBtnEl) clearBtnEl.disabled = true;
+        if (progressBarContainer) progressBarContainer.classList.remove('hidden');
+
         normalizeGalleryList();
-        webContent.gallery.push({ url: photoData, order });
-        updateWebContent();
-        logAuditEvent({ category: 'website', action: 'gallery.create', entityType: 'gallery', message: `Gallery image added with order ${order}.` });
+        let startOrder = Number(document.getElementById('new-gal-order')?.value);
+        if (!Number.isFinite(startOrder) || startOrder < 1) startOrder = getNextGalleryOrder();
+
+        const uploadedItems = [];
+        let errors = 0;
+
+        for (let i = 0; i < selectedGalleryFiles.length; i++) {
+            const item = selectedGalleryFiles[i];
+            const order = startOrder + i;
+            const progressPercent = Math.round((i / count) * 100);
+            if (progressBar) progressBar.style.width = `${progressPercent}%`;
+            if (statusEl) statusEl.textContent = `Compressing and uploading photo ${i + 1} of ${count}...`;
+            if (addBtnText) addBtnText.textContent = `Processing ${i + 1}/${count}...`;
+
+            try {
+                // Compress to max 75KB
+                const base64 = await compressImageFileToBase64(item.file, 75);
+                uploadedItems.push({ url: base64, order });
+            } catch (err) {
+                console.error(`Failed to compress gallery image ${i + 1}:`, err);
+                errors++;
+            }
+        }
+
+        if (progressBar) progressBar.style.width = '100%';
+
+        if (uploadedItems.length > 0) {
+            webContent.gallery.push(...uploadedItems);
+            await updateWebContent();
+            logAuditEvent({
+                category: 'website',
+                action: 'gallery.batch_create',
+                entityType: 'gallery',
+                message: `Batch added ${uploadedItems.length} photos starting with order ${startOrder}.`
+            });
+            showToast?.(`Successfully uploaded ${uploadedItems.length} photos!`, 'success');
+        }
+
+        if (errors > 0) {
+            alert(`${errors} photo(s) could not be compressed or uploaded.`);
+        }
+
         resetNewGalleryUploadForm();
         renderWebGallery();
     });
@@ -6504,7 +6720,7 @@ const initGalleryUploadControls = () => {
         try {
             editChangeBtn.disabled = true;
             editChangeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Compressing...';
-            const base64 = await compressImageFileToBase64(file, 50);
+            const base64 = await compressImageFileToBase64(file, 75);
             document.getElementById('edit-gal-data').value = base64;
             document.getElementById('edit-gal-preview').src = base64;
         } catch (err) {
