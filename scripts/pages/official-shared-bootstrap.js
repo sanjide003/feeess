@@ -34,7 +34,21 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       studentPageSize: 25,
       staffType: 'ALL',
       staffStatus: 'ALL',
-      staffSearch: ''
+      staffSearch: '',
+      alumniYear: 'ALL',
+      alumniSearch: '',
+      alumniPage: 1,
+      alumniPageSize: 25
+    };
+
+    const isAlumniStudent = (student = {}) => {
+      const cls = String(student.class || '').trim().toLowerCase();
+      const st = String(student.status || '').trim().toLowerCase();
+      return cls === 'alumni' || cls === 'graduated' || st === 'alumni' || st === 'graduated' || student.isAlumni === true;
+    };
+
+    const getAlumniGraduatedYear = (student = {}) => {
+      return String(student.graduatedYear || student.academicYear || 'General Alumni').trim();
     };
 
     const extractStudentPhoto = (obj = {}) => {
@@ -84,10 +98,10 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     };
 
     const filterStudentByAcademicYear = (student = {}, selectedYear = '') => {
+      if (isAlumniStudent(student)) return null;
       const targetYear = String(selectedYear || activeAcademicYearId || '').trim();
       if (!targetYear) {
-        const isGrad = String(student.class || '').toUpperCase() === 'GRADUATED';
-        return isGrad ? null : student;
+        return student;
       }
 
       const yearRecord = student.academicYears?.[targetYear];
@@ -99,19 +113,17 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
           isActive: yearRecord.status ? yearRecord.status === 'active' : student.isActive,
           concessionFee: yearRecord.concessionFee !== undefined ? yearRecord.concessionFee : student.concessionFee
         };
-        if (String(merged.class || '').toUpperCase() === 'GRADUATED') return null;
+        if (isAlumniStudent(merged)) return null;
         return merged;
       }
 
       const stuYear = String(student.academicYear || '').trim();
       if (stuYear) {
         if (stuYear !== targetYear) return null;
-        if (String(student.class || '').toUpperCase() === 'GRADUATED') return null;
         return student;
       }
 
       if (!activeAcademicYearId || targetYear === activeAcademicYearId) {
-        if (String(student.class || '').toUpperCase() === 'GRADUATED') return null;
         return student;
       }
 
@@ -322,6 +334,8 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
           setupExcelEngine();
       } else if (target === 'students') {
           renderStudents();
+      } else if (target === 'alumni') {
+          renderAlumniTab();
       } else if (target === 'staff') {
           renderStaffTab();
       } else if (target === 'summary') {
@@ -1329,6 +1343,347 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       }));
     };
 
+    const exportAlumniToExcel = (alumniToExport = []) => {
+      if (typeof XLSX === 'undefined') {
+        openOfficialDetailModal('Export Notice', '<p class="text-sm text-slate-600 p-4">Excel library is still loading. Please try again in a moment.</p>');
+        return;
+      }
+      const rowsData = alumniToExport.map((s, idx) => ({
+        'No': idx + 1,
+        'Adm No': s.adm || '',
+        'Student Name': s.name || '',
+        'Gender': s.gender || '',
+        'Graduated Year': getAlumniGraduatedYear(s),
+        'Completed Class': s.finalClass || s.promotedFrom || 'Completed',
+        'Father / Guardian': s.father || s.guardian || '',
+        'Mobile Number': s.mobile || s.phone || '',
+        'Address': s.address || s.place || '',
+        'Status': 'Alumni'
+      }));
+      const ws = XLSX.utils.json_to_sheet(rowsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Alumni Register');
+      const yearLabel = officialFilters.alumniYear || 'All_Years';
+      XLSX.writeFile(wb, `Alumni_Register_${yearLabel}.xlsx`);
+    };
+
+    const printAlumniRegisterPdf = (alumniToPrint = []) => {
+      const instName = resolveInstitutionName(institutionConfig) || 'Institution Official Portal';
+      const yearTitle = (!officialFilters.alumniYear || officialFilters.alumniYear === 'ALL')
+        ? 'All Graduated Years'
+        : `Graduated Year: ${officialFilters.alumniYear}`;
+
+      let printContainer = document.getElementById('alumni-register-print-area');
+      if (!printContainer) {
+        printContainer = document.createElement('div');
+        printContainer.id = 'alumni-register-print-area';
+        printContainer.className = 'hidden';
+        document.body.appendChild(printContainer);
+      }
+
+      const rowsHtml = alumniToPrint.map((s, idx) => `
+        <tr class="border-b border-slate-300">
+          <td class="p-2 text-center text-xs">${idx + 1}</td>
+          <td class="p-2 font-mono text-xs font-bold text-center">${escapeHtml(s.adm || '-')}</td>
+          <td class="p-2 text-xs font-bold">${escapeHtml(s.name || '-')}</td>
+          <td class="p-2 text-xs text-center">${escapeHtml(s.gender || '-')}</td>
+          <td class="p-2 text-xs text-center font-semibold">${escapeHtml(getAlumniGraduatedYear(s))}</td>
+          <td class="p-2 text-xs text-center font-semibold">${escapeHtml(s.finalClass || s.promotedFrom || 'Completed')}</td>
+          <td class="p-2 text-xs">${escapeHtml(s.father || s.guardian || '-')}</td>
+          <td class="p-2 text-xs font-mono text-center">${escapeHtml(s.mobile || '-')}</td>
+          <td class="p-2 text-xs">${escapeHtml(s.address || s.place || '-')}</td>
+        </tr>
+      `).join('');
+
+      printContainer.innerHTML = `
+        <div class="p-6 bg-white text-slate-900 printable-area">
+          <div class="text-center pb-4 mb-4 border-b-2 border-slate-900">
+            <h1 class="text-xl font-black uppercase tracking-wide">${escapeHtml(instName)}</h1>
+            <h2 class="text-sm font-bold text-slate-700 mt-1">OFFICIAL ALUMNI REGISTER</h2>
+            <p class="text-xs font-semibold text-slate-500 mt-0.5">${escapeHtml(yearTitle)} • Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+          <table class="w-full text-left border-collapse border border-slate-300">
+            <thead>
+              <tr class="bg-slate-100 text-slate-800 text-xs uppercase font-extrabold border-b border-slate-400">
+                <th class="p-2 text-center w-10">No</th>
+                <th class="p-2 text-center w-20">Adm No</th>
+                <th class="p-2">Student Name</th>
+                <th class="p-2 text-center w-16">Gender</th>
+                <th class="p-2 text-center w-28">Graduated Year</th>
+                <th class="p-2 text-center w-24">Final Class</th>
+                <th class="p-2">Guardian</th>
+                <th class="p-2 text-center w-28">Mobile</th>
+                <th class="p-2">Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml || '<tr><td colspan="9" class="p-4 text-center text-slate-500">No alumni records found</td></tr>'}
+            </tbody>
+          </table>
+          <div class="mt-8 flex justify-between items-center text-xs font-bold text-slate-600 pt-6 border-t border-slate-200">
+            <div>Total Graduated Students: <b>${alumniToPrint.length}</b></div>
+            <div>Principal / Headmaster Signature: ___________________</div>
+          </div>
+        </div>
+      `;
+
+      const styleEl = document.createElement('style');
+      styleEl.textContent = `
+        @media print {
+          body * { visibility: hidden !important; }
+          #alumni-register-print-area, #alumni-register-print-area * { visibility: visible !important; }
+          #alumni-register-print-area { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; display: block !important; }
+        }
+      `;
+      document.head.appendChild(styleEl);
+      window.print();
+      setTimeout(() => {
+        styleEl.remove();
+        printContainer.innerHTML = '';
+      }, 600);
+    };
+
+    const renderAlumniTab = () => {
+      const alumniTarget = document.getElementById('official-tab-alumni');
+      if (!alumniTarget) return;
+
+      const allAlumni = allStudents.filter(isAlumniStudent);
+      const distinctYears = [...new Set(allAlumni.map(getAlumniGraduatedYear))].sort((a, b) => {
+        const [aStart = 0] = String(a).split('-').map(Number);
+        const [bStart = 0] = String(b).split('-').map(Number);
+        if (aStart && bStart) return bStart - aStart;
+        return a.localeCompare(b);
+      });
+
+      const selectedYear = officialFilters.alumniYear || 'ALL';
+      let filteredAlumni = allAlumni;
+      if (selectedYear !== 'ALL') {
+        filteredAlumni = filteredAlumni.filter((s) => getAlumniGraduatedYear(s) === selectedYear);
+      }
+
+      const searchTxt = String(officialFilters.alumniSearch || '').trim().toLowerCase();
+      if (searchTxt) {
+        filteredAlumni = filteredAlumni.filter((s) => {
+          const searchable = [
+            s.name, s.adm, s.father, s.guardian, s.mobile, s.phone, s.address, s.place, s.finalClass, s.promotedFrom, getAlumniGraduatedYear(s)
+          ].filter(Boolean).join(' ').toLowerCase();
+          return searchable.includes(searchTxt);
+        });
+      }
+
+      filteredAlumni.sort((a, b) => {
+        const yearComp = String(getAlumniGraduatedYear(b)).localeCompare(String(getAlumniGraduatedYear(a)));
+        if (yearComp !== 0) return yearComp;
+        return String(a.adm || '').localeCompare(String(b.adm || ''), undefined, { numeric: true }) || String(a.name || '').localeCompare(String(b.name || ''));
+      });
+
+      const totalCount = filteredAlumni.length;
+      const pageSize = officialFilters.alumniPageSize === 0 ? Math.max(1, totalCount) : Number(officialFilters.alumniPageSize || 25);
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+      if (officialFilters.alumniPage > totalPages) officialFilters.alumniPage = totalPages;
+      if (officialFilters.alumniPage < 1) officialFilters.alumniPage = 1;
+
+      const startIdx = totalCount === 0 ? 0 : (officialFilters.alumniPage - 1) * pageSize;
+      const paginatedAlumni = filteredAlumni.slice(startIdx, startIdx + pageSize);
+
+      const yearOptionsHtml = [
+        `<option value="ALL" ${selectedYear === 'ALL' ? 'selected' : ''}>All Academic Years (${allAlumni.length})</option>`,
+        ...distinctYears.map((yr) => {
+          const cnt = allAlumni.filter((s) => getAlumniGraduatedYear(s) === yr).length;
+          return `<option value="${escapeHtml(yr)}" ${selectedYear === yr ? 'selected' : ''}>Alumni (${escapeHtml(yr)}) — ${cnt} Students</option>`;
+        })
+      ].join('');
+
+      const tableRowsHtml = paginatedAlumni.map((s, idx) => {
+        const rowNo = startIdx + idx + 1;
+        const gradYear = getAlumniGraduatedYear(s);
+        const finalClass = s.finalClass || s.promotedFrom || 'Completed';
+        const guardian = s.father || s.guardian || s.mother || '--';
+        const contact = s.mobile || s.phone || '--';
+        const address = s.address || s.place || '--';
+        const gender = s.gender || '--';
+
+        return `
+          <tr class="hover:bg-amber-50/60 transition-colors odd:bg-white even:bg-slate-50/40">
+            <td class="border border-slate-200 p-2.5 text-center font-bold text-slate-500">${rowNo}</td>
+            <td class="border border-slate-200 p-2.5 text-center font-mono font-bold text-indigo-900 bg-indigo-50/30">${escapeHtml(s.adm || '-')}</td>
+            <td class="border border-slate-200 p-2.5">
+              <div class="flex items-center gap-2.5">
+                ${renderAvatarMarkup(s, s.name, 'w-8 h-8 rounded-lg text-xs')}
+                <div>
+                  <button type="button" class="font-extrabold text-slate-900 hover:text-indigo-700 hover:underline cursor-pointer text-left" data-alumni-id="${escapeHtml(s.id)}">
+                    ${escapeHtml(s.name || 'Unnamed')}
+                  </button>
+                  <div class="text-[10px] text-amber-700 font-bold">🎓 Graduated: ${escapeHtml(gradYear)}</div>
+                </div>
+              </div>
+            </td>
+            <td class="border border-slate-200 p-2.5 text-center font-semibold text-slate-700">${escapeHtml(gender)}</td>
+            <td class="border border-slate-200 p-2.5 text-center">
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                ${escapeHtml(gradYear)}
+              </span>
+            </td>
+            <td class="border border-slate-200 p-2.5 text-center font-bold text-slate-800">
+              Class ${escapeHtml(finalClass)}
+            </td>
+            <td class="border border-slate-200 p-2.5 font-medium text-slate-700">${escapeHtml(guardian)}</td>
+            <td class="border border-slate-200 p-2.5 text-center font-mono text-xs font-semibold text-slate-700">
+              ${contact !== '--' ? `<a href="tel:${escapeHtml(contact)}" class="text-blue-700 hover:underline"><i class="fas fa-phone-alt text-[10px] mr-1"></i>${escapeHtml(contact)}</a>` : '--'}
+            </td>
+            <td class="border border-slate-200 p-2.5 text-slate-600 text-xs max-w-[180px] truncate" title="${escapeHtml(address)}">${escapeHtml(address)}</td>
+            <td class="border border-slate-200 p-2.5 text-center">
+              <button type="button" class="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold border border-indigo-200 cursor-pointer transition shadow-2xs" data-alumni-id="${escapeHtml(s.id)}">
+                <i class="fas fa-eye mr-1"></i> Profile
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      alumniTarget.innerHTML = `
+        <div class="card p-3 sm:p-5 rounded-2xl shadow-sm w-full max-w-none space-y-4">
+          <!-- Top Header Strip -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+              <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold border border-amber-200">
+                  <i class="fas fa-user-graduate"></i>
+                </span>
+                <span>Alumni Register</span>
+              </h3>
+              <p class="text-xs text-slate-500 font-semibold mt-0.5">Permanent historical archive of all graduated students across academic years.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-extrabold px-3 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+                Total Alumni: <b>${allAlumni.length}</b> (Filtered: ${totalCount})
+              </span>
+              <button id="btn-alumni-export-excel" type="button" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs cursor-pointer flex items-center gap-1.5 transition">
+                <i class="fas fa-file-excel"></i> Export Excel
+              </button>
+              <button id="btn-alumni-export-pdf" type="button" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-2xs cursor-pointer flex items-center gap-1.5 transition">
+                <i class="fas fa-print"></i> Print / PDF
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter Toolbar -->
+          <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center gap-2.5">
+              <div class="flex items-center gap-1.5">
+                <label for="alumni-filter-year" class="text-xs font-bold text-slate-700">Graduated Year:</label>
+                <select id="alumni-filter-year" class="p-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-800 shadow-2xs min-w-[200px]">
+                  ${yearOptionsHtml}
+                </select>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <label for="alumni-page-size" class="text-xs font-bold text-slate-700">Show:</label>
+                <select id="alumni-page-size" class="p-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-800 shadow-2xs">
+                  <option value="25" ${pageSize === 25 ? 'selected' : ''}>25</option>
+                  <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
+                  <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
+                  <option value="0" ${officialFilters.alumniPageSize === 0 ? 'selected' : ''}>All</option>
+                </select>
+              </div>
+            </div>
+            <div class="w-full sm:w-auto">
+              <div class="relative">
+                <input id="alumni-search-input" type="text" value="${escapeHtml(officialFilters.alumniSearch || '')}" placeholder="Search name, adm no, guardian..." class="w-full sm:w-72 pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:border-amber-500 shadow-2xs">
+                <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alumni Table -->
+          <div class="overflow-x-auto w-full rounded-xl border border-slate-200 bg-white shadow-2xs">
+            <table class="w-full text-xs sm:text-sm border-collapse min-w-[950px]">
+              <thead>
+                <tr class="bg-amber-50/70 text-amber-950 font-bold">
+                  <th class="border border-slate-200 p-2.5 w-12 text-center">NO</th>
+                  <th class="border border-slate-200 p-2.5 text-center w-24">Adm No</th>
+                  <th class="border border-slate-200 p-2.5 text-left">Student Name</th>
+                  <th class="border border-slate-200 p-2.5 text-center w-20">Gender</th>
+                  <th class="border border-slate-200 p-2.5 text-center w-28">Graduated Year</th>
+                  <th class="border border-slate-200 p-2.5 text-center w-24">Completed Class</th>
+                  <th class="border border-slate-200 p-2.5 text-left">Guardian</th>
+                  <th class="border border-slate-200 p-2.5 text-center w-28">Mobile</th>
+                  <th class="border border-slate-200 p-2.5 text-left">Address</th>
+                  <th class="border border-slate-200 p-2.5 text-center w-24">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRowsHtml || '<tr><td colspan="10" class="border border-slate-200 p-6 text-center text-slate-500 font-medium">No alumni records found matching current filters</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs font-bold text-slate-600">
+            <div>
+              Showing ${totalCount === 0 ? 0 : startIdx + 1} to ${Math.min(startIdx + pageSize, totalCount)} of ${totalCount} Alumni
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button id="official-alumni-prev" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 cursor-pointer shadow-2xs" ${officialFilters.alumniPage <= 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left mr-1"></i> Prev
+              </button>
+              <span class="px-3 py-1.5 bg-slate-100 rounded-lg text-slate-700">Page ${officialFilters.alumniPage} of ${totalPages}</span>
+              <button id="official-alumni-next" class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 cursor-pointer shadow-2xs" ${officialFilters.alumniPage >= totalPages ? 'disabled' : ''}>
+                Next <i class="fas fa-chevron-right ml-1"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Attach event listeners for Alumni Tab
+      document.getElementById('alumni-filter-year')?.addEventListener('change', (e) => {
+        officialFilters.alumniYear = e.target.value;
+        officialFilters.alumniPage = 1;
+        renderAlumniTab();
+      });
+
+      document.getElementById('alumni-page-size')?.addEventListener('change', (e) => {
+        officialFilters.alumniPageSize = Number(e.target.value);
+        officialFilters.alumniPage = 1;
+        renderAlumniTab();
+      });
+
+      let searchTimer = null;
+      document.getElementById('alumni-search-input')?.addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+          officialFilters.alumniSearch = e.target.value;
+          officialFilters.alumniPage = 1;
+          renderAlumniTab();
+        }, 250);
+      });
+
+      document.getElementById('official-alumni-prev')?.addEventListener('click', () => {
+        if (officialFilters.alumniPage > 1) {
+          officialFilters.alumniPage -= 1;
+          renderAlumniTab();
+        }
+      });
+
+      document.getElementById('official-alumni-next')?.addEventListener('click', () => {
+        if (officialFilters.alumniPage < totalPages) {
+          officialFilters.alumniPage += 1;
+          renderAlumniTab();
+        }
+      });
+
+      document.getElementById('btn-alumni-export-excel')?.addEventListener('click', () => exportAlumniToExcel(filteredAlumni));
+      document.getElementById('btn-alumni-export-pdf')?.addEventListener('click', () => printAlumniRegisterPdf(filteredAlumni));
+
+      alumniTarget.querySelectorAll('[data-alumni-id]').forEach((el) => el.addEventListener('click', () => {
+        const student = allStudents.find((item) => item.id === el.dataset.alumniId);
+        if (student) {
+          openOfficialDetailModal('Alumni Profile', buildStudentDetailHtml(student));
+          attachStudentModalTabs();
+        }
+      }));
+    };
+
     const buildClassSummary = () => {
       const yearStudents = getStudentsForCurrentAcademicYear();
       const map = new Map();
@@ -1368,6 +1723,54 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
           <td class="border border-slate-200 p-2.5 text-center">${row.missingUid}</td>
         </tr>`;
       }).join('');
+
+      // Gather and group Alumni records
+      const alumniRecords = allStudents.filter(isAlumniStudent);
+      const alumniMap = new Map();
+      alumniRecords.forEach((student) => {
+        const yr = getAlumniGraduatedYear(student);
+        if (!alumniMap.has(yr)) {
+          alumniMap.set(yr, { boys: 0, girls: 0, total: 0 });
+        }
+        const row = alumniMap.get(yr);
+        row.total += 1;
+        const gender = normalizeText(student.gender);
+        if (gender === 'male') row.boys += 1;
+        else if (gender === 'female') row.girls += 1;
+      });
+
+      const alumniYears = [...alumniMap.keys()].sort((a, b) => {
+        const [aStart = 0] = String(a).split('-').map(Number);
+        const [bStart = 0] = String(b).split('-').map(Number);
+        if (aStart && bStart) return bStart - aStart;
+        return a.localeCompare(b);
+      });
+
+      const alumniTotals = { boys: 0, girls: 0, total: 0 };
+      const alumniRowsHtml = alumniYears.map((yr, idx) => {
+        const row = alumniMap.get(yr);
+        alumniTotals.boys += row.boys;
+        alumniTotals.girls += row.girls;
+        alumniTotals.total += row.total;
+        return `<tr class="hover:bg-amber-50/70 transition-colors odd:bg-white even:bg-slate-50/40">
+          <td class="border border-slate-200 p-2.5 text-center font-bold text-slate-500">${idx + 1}</td>
+          <td class="border border-slate-200 p-2.5 font-bold text-slate-800">
+            <button type="button" class="text-amber-800 hover:text-amber-900 hover:underline font-extrabold alumni-year-btn cursor-pointer inline-flex items-center gap-1.5" data-year="${escapeHtml(yr)}">
+              <i class="fas fa-graduation-cap text-amber-600"></i>
+              <span>Alumni (${escapeHtml(yr)})</span>
+            </button>
+          </td>
+          <td class="border border-slate-200 p-2.5 text-center font-semibold">${row.boys}</td>
+          <td class="border border-slate-200 p-2.5 text-center font-semibold">${row.girls}</td>
+          <td class="border border-slate-200 p-2.5 text-center font-extrabold text-amber-900 bg-amber-50/50">${row.total}</td>
+          <td class="border border-slate-200 p-2.5 text-center">
+            <button type="button" class="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold transition alumni-year-btn cursor-pointer" data-year="${escapeHtml(yr)}">
+              <i class="fas fa-list mr-1"></i> View Register
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+
       const summaryTarget = document.getElementById('official-tab-summary');
       if (!summaryTarget) return;
 
@@ -1384,7 +1787,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                 <i class="fas fa-chart-pie text-emerald-600"></i>
                 <span>Dashboard — Class Summary</span>
               </h3>
-              <p class="text-xs text-slate-500 font-semibold mt-0.5">Overview of classes, student strength, and records. Click any class to inspect its student register.</p>
+              <p class="text-xs text-slate-500 font-semibold mt-0.5">Overview of active classes, student strength, and records. Click any class to inspect its student register.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
               <select id="summary-academic-year" class="p-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-800 shadow-2xs">
@@ -1438,18 +1841,71 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
               </tbody>
             </table>
           </div>
+
+          <!-- Dedicated Alumni Summary Table Section -->
+          <div class="mt-8 border-t-2 border-slate-200 pt-6 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <h3 class="font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                  <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-bold border border-amber-200">
+                    <i class="fas fa-user-graduate"></i>
+                  </span>
+                  <span>Alumni Summary</span>
+                </h3>
+                <p class="text-xs text-slate-500 font-semibold mt-0.5">Summary of graduated students by academic year (strictly excluded from active student strength).</p>
+              </div>
+              <span class="text-xs font-extrabold px-3 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1.5 shadow-2xs">
+                <i class="fas fa-graduation-cap"></i> Total Alumni: ${alumniTotals.total}
+              </span>
+            </div>
+
+            <div class="overflow-x-auto w-full rounded-xl border border-slate-200 bg-white shadow-2xs">
+              <table class="w-full text-xs sm:text-sm border-collapse min-w-[700px]">
+                <thead>
+                  <tr class="bg-amber-50/70 text-amber-950 font-bold">
+                    <th class="border border-slate-200 p-2.5 w-12 text-center">NO</th>
+                    <th class="border border-slate-200 p-2.5 text-left">Academic Year (Alumni Cohort)</th>
+                    <th class="border border-slate-200 p-2.5 text-center">Boys</th>
+                    <th class="border border-slate-200 p-2.5 text-center">Girls</th>
+                    <th class="border border-slate-200 p-2.5 text-center">Total Alumni</th>
+                    <th class="border border-slate-200 p-2.5 text-center w-36">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${alumniRowsHtml || '<tr><td colspan="6" class="border border-slate-200 p-4 text-center text-slate-500">No alumni records found in database</td></tr>'}
+                  <tr class="bg-amber-100/60 font-extrabold text-amber-950">
+                    <td class="border border-slate-200 p-2.5 text-center">-</td>
+                    <td class="border border-slate-200 p-2.5">Grand Total Alumni</td>
+                    <td class="border border-slate-200 p-2.5 text-center">${alumniTotals.boys}</td>
+                    <td class="border border-slate-200 p-2.5 text-center">${alumniTotals.girls}</td>
+                    <td class="border border-slate-200 p-2.5 text-center">${alumniTotals.total}</td>
+                    <td class="border border-slate-200 p-2.5 text-center">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>`;
+
       document.getElementById('summary-academic-year')?.addEventListener('change', (e) => {
         officialFilters.academicYearId = e.target.value;
         officialFilters.studentPage = 1;
         buildClassSummary();
         renderStudents();
       });
+
       document.querySelectorAll('.class-filter-btn').forEach((btn) => btn.addEventListener('click', () => {
         officialFilters.studentClass = btn.dataset.class || 'ALL';
         officialFilters.studentPage = 1;
         renderStudents();
         setTab('students');
+      }));
+
+      document.querySelectorAll('.alumni-year-btn').forEach((btn) => btn.addEventListener('click', () => {
+        officialFilters.alumniYear = btn.dataset.year || 'ALL';
+        officialFilters.alumniPage = 1;
+        renderAlumniTab();
+        setTab('alumni');
       }));
     };
 
@@ -2138,6 +2594,21 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     };
 
     const getAvailableFieldsForSource = (sourceType = builderConfig.sourceType) => {
+      if (sourceType === 'alumni') {
+        return [
+          { id: 'SNO', label: 'Serial No. (Auto)' },
+          { id: 'adm', label: 'Admission No.' },
+          { id: 'name', label: 'Student Name' },
+          { id: 'gender', label: 'Gender' },
+          { id: 'graduatedYear', label: 'Graduated Academic Year' },
+          { id: 'completedClass', label: 'Completed Class' },
+          { id: 'father', label: 'Father / Guardian' },
+          { id: 'mobile', label: 'Mobile Number' },
+          { id: 'address', label: 'Address / Place' },
+          { id: 'status', label: 'Status' },
+          { id: 'CUSTOM', label: 'Custom / Blank Column' }
+        ];
+      }
       if (sourceType === 'staff') {
         return [
           { id: 'SNO', label: 'Serial No. (Auto)' },
@@ -2457,6 +2928,27 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     const getBuilderDatasetRows = () => {
       const yearId = builderConfig.academicYearId || officialFilters.academicYearId || activeAcademicYearId;
 
+      if (builderConfig.sourceType === 'alumni') {
+        let alumniList = allStudents.filter(isAlumniStudent);
+        if (builderConfig.academicYearId && builderConfig.academicYearId !== 'ALL') {
+          alumniList = alumniList.filter((s) => getAlumniGraduatedYear(s) === builderConfig.academicYearId);
+        }
+        let rows = alumniList.map((s) => ({
+          ...s,
+          class: 'Alumni',
+          graduatedYear: getAlumniGraduatedYear(s),
+          completedClass: s.finalClass || s.promotedFrom || 'Completed'
+        }));
+        if (builderConfig.sortBy === 'name') {
+          rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        } else if (builderConfig.sortBy === 'adm') {
+          rows.sort((a, b) => String(a.adm || '').localeCompare(String(b.adm || ''), undefined, { numeric: true }));
+        } else if (builderConfig.sortBy === 'class') {
+          rows.sort((a, b) => String(a.graduatedYear || '').localeCompare(String(b.graduatedYear || '')) || String(a.name || '').localeCompare(String(b.name || '')));
+        }
+        return rows;
+      }
+
       if (builderConfig.sourceType === 'staff') {
         let staffRows = buildUnifiedStaffRecords();
         if (builderConfig.staffCategory && builderConfig.staffCategory !== 'ALL') {
@@ -2586,6 +3078,20 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
           { id: 'col_place', field: 'place', title: 'Place / Address', width: '140px' },
           { id: 'col_sig', field: 'CUSTOM', title: 'Signature', width: '110px' }
         ];
+      } else if (presetId === 'alumni_register') {
+        builderConfig.sourceType = 'alumni';
+        builderConfig.customTitle = 'OFFICIAL ALUMNI REGISTER';
+        builderConfig.columns = [
+          { id: 'col_sno', field: 'SNO', title: 'S.No', width: '45px' },
+          { id: 'col_adm', field: 'adm', title: 'Adm No.', width: '80px' },
+          { id: 'col_name', field: 'name', title: 'Student Name', width: '180px' },
+          { id: 'col_gen', field: 'gender', title: 'Gender', width: '70px' },
+          { id: 'col_gyear', field: 'graduatedYear', title: 'Graduated Year', width: '120px' },
+          { id: 'col_ccls', field: 'completedClass', title: 'Final Class', width: '90px' },
+          { id: 'col_fat', field: 'father', title: 'Guardian Name', width: '150px' },
+          { id: 'col_mob', field: 'mobile', title: 'Mobile', width: '110px' },
+          { id: 'col_addr', field: 'address', title: 'Address / Place', width: '160px' }
+        ];
       }
       renderExportTab();
       setupExcelEngine();
@@ -2625,6 +3131,13 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       const classOptions = [...new Set(yearStudents.map(getStudentClass))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
       const allStaffRecords = buildUnifiedStaffRecords();
       const staffCategories = [...new Set(allStaffRecords.map((s) => s.category).filter(Boolean))].sort();
+      const allAlumniRecords = allStudents.filter(isAlumniStudent);
+      const alumniDistinctYears = [...new Set(allAlumniRecords.map(getAlumniGraduatedYear))].sort((a, b) => {
+        const [aStart = 0] = String(a).split('-').map(Number);
+        const [bStart = 0] = String(b).split('-').map(Number);
+        if (aStart && bStart) return bStart - aStart;
+        return a.localeCompare(b);
+      });
       const currentFields = getAvailableFieldsForSource(builderConfig.sourceType);
       const dataRows = getBuilderDatasetRows();
 
@@ -2635,8 +3148,11 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       const selectedYearObj = academicYears.find((y) => y.id === builderConfig.academicYearId);
       const yearLabel = selectedYearObj ? (selectedYearObj.name || selectedYearObj.label || selectedYearObj.id) : '';
       const autoSubInfo = [];
-      if (yearLabel && builderConfig.sourceType !== 'staff') autoSubInfo.push(`Academic Year: ${yearLabel}`);
-      if (builderConfig.sourceType !== 'staff') {
+      if (builderConfig.sourceType === 'alumni') {
+        const yearTxt = (!builderConfig.academicYearId || builderConfig.academicYearId === 'ALL') ? 'All Graduated Years' : `Graduated Year: ${builderConfig.academicYearId}`;
+        autoSubInfo.push(`Alumni Cohort  •  ${yearTxt}`);
+      } else if (builderConfig.sourceType !== 'staff') {
+        if (yearLabel) autoSubInfo.push(`Academic Year: ${yearLabel}`);
         autoSubInfo.push(builderConfig.classId === 'ALL' ? 'All Classes' : (builderConfig.classId ? `Class: ${builderConfig.classId}` : 'Blank Sheet'));
       } else {
         autoSubInfo.push(builderConfig.staffCategory === 'ALL' ? 'All Staff & Management Categories' : `Category: ${builderConfig.staffCategory}`);
@@ -2853,12 +3369,21 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                 <label class="text-[10px] font-bold text-slate-700 mb-0.5">1. Data Module</label>
                 <select id="builder-source-type" class="excel-input-ribbon w-40 font-bold text-indigo-900">
                   <option value="students" ${builderConfig.sourceType === 'students' ? 'selected' : ''}>Students Register</option>
+                  <option value="alumni" ${builderConfig.sourceType === 'alumni' ? 'selected' : ''}>🎓 Alumni</option>
                   <option value="staff" ${builderConfig.sourceType === 'staff' ? 'selected' : ''}>Staff & Management</option>
                   <option value="fees" ${builderConfig.sourceType === 'fees' ? 'selected' : ''}>Fee Collection Status</option>
                   <option value="results" ${builderConfig.sourceType === 'results' ? 'selected' : ''}>Exam Results & Marks</option>
                 </select>
               </div>
-              ${builderConfig.sourceType !== 'staff' ? `
+              ${builderConfig.sourceType === 'alumni' ? `
+              <div class="flex flex-col">
+                <label class="text-[10px] font-bold text-slate-700 mb-0.5">2. Graduated Year</label>
+                <select id="builder-academic-year" class="excel-input-ribbon w-40 font-bold">
+                  <option value="ALL" ${builderConfig.academicYearId === 'ALL' ? 'selected' : ''}>All Academic Years (${allAlumniRecords.length})</option>
+                  ${alumniDistinctYears.map((yr) => `<option value="${escapeHtml(yr)}" ${builderConfig.academicYearId === yr ? 'selected' : ''}>Alumni (${escapeHtml(yr)})</option>`).join('')}
+                </select>
+              </div>
+              ` : (builderConfig.sourceType !== 'staff' ? `
               <div class="flex flex-col">
                 <label class="text-[10px] font-bold text-slate-700 mb-0.5">2. Academic Year</label>
                 <select id="builder-academic-year" class="excel-input-ribbon w-32">
@@ -2883,7 +3408,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
                   ${staffCategories.map((cat) => `<option value="${escapeHtml(cat)}" ${builderConfig.staffCategory === cat ? 'selected' : ''}>${escapeHtml(cat)}</option>`).join('')}
                 </select>
               </div>
-              `}
+              `)}
               ${builderConfig.sourceType === 'fees' ? `
               <div class="flex flex-col">
                 <label class="text-[10px] font-bold text-slate-700 mb-0.5">4. Fee Item</label>
@@ -3166,6 +3691,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
         const newSource = e.target.value;
         builderConfig.sourceType = newSource;
         if (newSource === 'students') applyBuilderPreset('student_register');
+        else if (newSource === 'alumni') applyBuilderPreset('alumni_register');
         else if (newSource === 'staff') applyBuilderPreset('staff_register');
         else if (newSource === 'fees') applyBuilderPreset('fee_defaulters');
         else if (newSource === 'results') applyBuilderPreset('exam_marklist');
@@ -3700,6 +4226,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
       renderDashboard();
       buildClassSummary();
       renderStudents();
+      renderAlumniTab();
       renderStaffTab();
       if(document.getElementById('official-tab-export')?.classList.contains('flex')) {
           renderExportTab();

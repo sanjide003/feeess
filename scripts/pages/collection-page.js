@@ -870,13 +870,18 @@ const applyCurrentYearStudentScope = () => {
         students = [];
         return;
     }
+    const filterActiveOnly = (student) => {
+        const cls = String(student.class || '').trim().toLowerCase();
+        const st = String(student.status || '').trim().toLowerCase();
+        return cls !== 'alumni' && st !== 'alumni' && st !== 'graduated' && st !== 'discontinued' && student.isAlumni !== true;
+    };
     if (!currentWorkingAcademicYear) {
-        students = [...allStudentsRaw];
+        students = allStudentsRaw.filter(filterActiveOnly);
         return;
     }
     students = allStudentsRaw.filter((student) => {
         const studentYear = student.academicYear || currentWorkingAcademicYear;
-        return studentYear === currentWorkingAcademicYear;
+        return studentYear === currentWorkingAcademicYear && filterActiveOnly(student);
     });
 };
 const getPaymentGroupKey = (payment = {}) => {

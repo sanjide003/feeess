@@ -745,9 +745,14 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                         }
                         document.getElementById('login-class').innerHTML = '<option value="">Select Class</option>' + classOptions;
                         
-                        document.getElementById('stat-total').textContent = allStudents.length;
-                        document.getElementById('stat-male').textContent = allStudents.filter(s => s.gender === 'Male').length;
-                        document.getElementById('stat-female').textContent = allStudents.filter(s => s.gender === 'Female').length;
+                        const activeStudents = allStudents.filter((s) => {
+                            const cls = String(s.class || '').trim().toLowerCase();
+                            const st = String(s.status || '').trim().toLowerCase();
+                            return cls !== 'alumni' && st !== 'alumni' && st !== 'graduated' && st !== 'discontinued';
+                        });
+                        document.getElementById('stat-total').textContent = activeStudents.length;
+                        document.getElementById('stat-male').textContent = activeStudents.filter(s => s.gender === 'Male').length;
+                        document.getElementById('stat-female').textContent = activeStudents.filter(s => s.gender === 'Female').length;
 
                         loaded.students = true; triggerAnim();
                     });
@@ -789,7 +794,15 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
             if(!cls) { selectedLoginStudent = null; lSugg.classList.remove('active'); return; }
             if(txt.length < 1) { lSugg.classList.remove('active'); return; }
             
-            const matches = allStudents.filter(s => s.class === cls && (s.name.toLowerCase().includes(txt) || (s.adm && s.adm.toLowerCase().includes(txt))));
+            const isAlumniCls = String(cls).trim().toLowerCase() === 'alumni';
+            const matches = allStudents.filter(s => {
+                const sCls = String(s.class || '').trim().toLowerCase();
+                const sSt = String(s.status || '').trim().toLowerCase();
+                const belongsToCls = isAlumniCls
+                    ? (sCls === 'alumni' || sSt === 'alumni' || sSt === 'graduated' || s.isAlumni === true)
+                    : (s.class === cls);
+                return belongsToCls && (String(s.name || '').toLowerCase().includes(txt) || (s.adm && String(s.adm).toLowerCase().includes(txt)));
+            });
             if(matches.length > 0) {
                 lSugg.classList.add('active');
                 matches.forEach(s => {
@@ -837,7 +850,14 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                 if (!selectedLoginStudent) {
                     const typedIdentifier = lName.value.trim().toLowerCase();
                     if (typedIdentifier) {
-                        const classMatches = allStudents.filter((student) => student.class === selectedClass);
+                        const isAlumniCls = String(selectedClass).trim().toLowerCase() === 'alumni';
+                        const classMatches = allStudents.filter((student) => {
+                            const sCls = String(student.class || '').trim().toLowerCase();
+                            const sSt = String(student.status || '').trim().toLowerCase();
+                            return isAlumniCls
+                                ? (sCls === 'alumni' || sSt === 'alumni' || sSt === 'graduated' || student.isAlumni === true)
+                                : (student.class === selectedClass);
+                        });
                         const matchedStudents = classMatches.filter((student) => {
                             const studentName = String(student.name || '').trim().toLowerCase();
                             const studentAdm = String(student.adm || '').trim().toLowerCase();

@@ -3279,10 +3279,11 @@ window.AppSession?.guardStudentPage?.();
 
             // Class
             const classVal = st.class || st.studentClass || prof.class || prof.studentClass || '-';
+            const isAlumni = String(classVal).trim().toLowerCase() === 'alumni' || st.status === 'alumni' || st.status === 'graduated' || st.isAlumni === true;
             const classEl = document.getElementById('dash-class');
-            if (classEl) classEl.textContent = `Class: ${classVal}`;
+            if (classEl) classEl.textContent = isAlumni ? `Status: 🎓 Alumni` : `Class: ${classVal}`;
             const classValEl = document.getElementById('dash-class-val');
-            if (classValEl) classValEl.textContent = classVal;
+            if (classValEl) classValEl.textContent = isAlumni ? `🎓 Alumni (Graduated)` : classVal;
 
             // Academic Year (Shown in Profile Header)
             const acadYear = currentAcademicYear || st.academicYear || prof.academicYear || selectedFeeAcademicYear || '';

@@ -1,247 +1,193 @@
-# Student Discontinue & Re-admission Management System
+# Comprehensive Implementation Plan: Alumni (Graduated Students) Lifecycle & Worksheet Architecture
 
-A dedicated administrative subsystem for managing student departure (discontinuation) and subsequent re-admission across multiple academic years without data loss, preserving historical fee dues up to the departure date, and recording multi-year gap trajectories with auditable notes in the existing Vanilla JS + HTML5 + Tailwind CSS + Cloud Firestore architecture.
+## Executive Summary
+
+This plan outlines the architecture, data structures, and user interface modifications required to implement the complete **Alumni (Graduated Students)** lifecycle across the madrasa web application.
+
+Students who successfully complete their terminal class or graduate via the annual examination promotion in the **Results Center** transition into **Alumni** status. In accordance with the system requirements:
+1. **Zero Visibility in Active Portals**: Alumni are completely hidden from active student registers, Result Candidate lists/Marks entry, and Fee Collection rosters.
+2. **Student Portal Login**: Alumni can log in via the Student Login page by selecting **"Alumni"** in the Class dropdown.
+3. **Worksheet Dashboard (Summary Table)**: A dedicated **Alumni Summary Table** is placed directly below the Class Summary table, grouped by **Graduated Academic Year** with boy, girl, and total counts, strictly excluded from the active Total Students KPI.
+4. **Dedicated Worksheet Alumni Register Tab**: Alumni are separated from the regular Student Register tab into their own **"Alumni Register"** tab with full profile details (graduated year, completed class, parent contact details) and an Academic Year filter (including an **"All"** option).
+5. **Class Worksheet Data Selection**: The data selector in Class Worksheet includes **"Alumni"** alongside Student, Staff, Fee Collection, and Exam, with an Academic Year dropdown supporting specific years and **"All"**.
 
 ---
 
-## User Review & Critical Decisions
+## 1. User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following product requirements and architectural decisions were confirmed based on the user's explicit responses and clarifications:
-
-- **Confirmed Decision 1 (Navigation Placement)**: The Discontinue & Re-admission portal will be placed in a dedicated **"Continuity & Transfers"** section within the admin navigation drawer (rather than buried inside sub-menus).
-- **Confirmed Decision 2 (Fee Ledger Preservation & Profile Collection)**: When a student is discontinued, all unpaid fee dues prior to discontinuation are preserved in the ledger up to the departure date. In the Fee Collection screen and student profiles, discontinued students appear marked with a distinct "Discontinued" badge, allowing administrators to collect preserved prior dues. Crucially, **no fees are assessed or generated for intervening gap years**. Fee generation resumes strictly from the return date / target academic year.
-- **Confirmed Decision 3 (Re-admission Target Assignment)**: During re-admission, administrators select the target active academic year and assign the student to their return class via a manual class/division dropdown.
-- **Confirmed Decision 4 (Class Register & Table Visibility)**: Discontinued students are excluded from active class registers, regular attendance lists, and active student tables by default, and are centrally managed within `#student-continuity`.
-- **Confirmed Decision 5 (Optional TC Generation)**: During the discontinuation workflow, an optional **"Generate Transfer Certificate (TC) Entry"** checkbox allows administrators to create a corresponding TC record/draft alongside the discontinuation log.
-- **Confirmed Decision 6 (Zero Architecture / Stack Mutation)**: The existing Vanilla JS, HTML5, Tailwind CSS, and Cloud Firestore stack is strictly maintained without introducing TypeScript compilers, React, or unnecessary external dependencies.
-
----
-
-## 1. Overview & Core Concept
-
-### What It Does
-Provides madrasa administrators with a dedicated workspace to manage student departure and return:
-1. **Class-Filtered Discontinuation**: Admins select a class, select a student, enter the departure date, reason (e.g., family relocation, transfer, medical, madrasa change), and optionally generate a TC record. The student transitions to `Discontinued` status.
-2. **Dedicated Discontinued Student Archive**: A searchable registry displaying all discontinued students with their admission number, name, original class, exit date, exit reason, preserved dues, and inactive duration (e.g., "1 Year 4 Months / 2 Academic Years").
-3. **Multi-Year Re-admission Wizard**: When a student returns after 1, 2, or 3+ academic years, clicking **"Re-admit Student"** opens a guided modal. Admins select the target Academic Year, assign the new Class and Division, enter the return date and notes, and preview the historical gap and preserved prior fee balance.
-4. **Historical Trajectory Integrity**: Discontinuations and re-admissions are recorded in the student's `continuityLog` array, `academicYears` map, and Firestore audit logs, preventing any loss of past academic records.
-
-### Target Audience
-Madrasa Principals, Headmasters (Sadrs), Office Administrators, and Super Admins managing student cohorts across Kerala madrasa academic calendars (May/June to March/April).
-
-### Key Value
-Eliminates confusing manual deactivations or deletion of student records, maintains unbroken academic audit trails across years, and ensures returning students resume their studies with accurate fees and class levels.
+> The following requirements and user responses have been established:
+> 
+> - **Student Login Mechanism**: Alumni select **"Alumni"** directly inside the standard Class selection dropdown on the Student Login form (`index.html` & `student.html`).
+> - **Worksheet Dashboard Metric Isolation**: Alumni are **never counted** in the active "Total Students" header card. They are presented in an independent **Alumni Summary Table** below the Class Summary table, grouped by Graduated Academic Year with boy/girl metrics.
+> - **Alumni Register Tab**: Dedicated tab in `worksheet.html` showcasing full profile details (Admission No, Name, Gender, Graduated Year, Completed Class, Guardian Name, Contact Number, Status) with an Academic Year filter and an **"All"** view.
+> - **Class Worksheet Data Selector**: Add "Alumni" to the exportable datasets in Class Worksheet with an Academic Year selector (with **"All"** option).
+> - **Results Center Promotion Flow**: The promotion logic in `result.html` / `result-page.js` marks passing final-year students with `class: 'Alumni'`, `status: 'alumni'` (or `'graduated'`), and records `graduatedYear`. Failed students remain in their current class for the upcoming academic year.
 
 ---
 
-## 2. User Experience & Visual Design
-
-### Key User Flows
+## 2. Core Architectural Changes & Affected Files
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                       DISCONTINUE & RE-ADMISSION WORKFLOW                   │
+│                       ALUMNI LIFECYCLE & INTEGRATION                        │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-  [1. STUDENT DEPARTURE]
-  Admin Navigation ──> #student-continuity
-       │
-       ▼
-  Top Action Bar:
-  ├── Select Class (e.g. "Class 4 B")
-  ├── Select Student from dropdown or live search
-  ├── Enter Exit Date & Reason (Notes)
-  ├── Checkbox: [ ] Generate Transfer Certificate (TC) draft
-  └── Click "Discontinue Student"
-       │
-       ▼
-  [Confirmation Modal] ──> Commit to Firestore:
-       • status: 'Discontinued'
-       • continuityLog appended with exit details & prior balance
-       • academicYears[currentYear].status = 'Discontinued'
-       • Optional TC record created if selected
-       • Audit log generated
+ [Results Center - Annual Promotion]
+   ├── Passed final class ──> Target Class: "Alumni"
+   │     • class = 'Alumni'
+   │     • status = 'alumni' (or 'graduated')
+   │     • graduatedYear = currentAcademicYear
+   └── Failed students ──> Remain in current class
 
-  ─────────────────────────────────────────────────────────────────────────────
+ [Student Login (index.html / student.html)]
+   └── Class Dropdown: Includes "Alumni" option
+         • Verifies admission no + DOB/Password
+         • Allows student portal access to view past report cards & profile
 
-  [2. DISCONTINUED DIRECTORY]
-  Real-time List Table:
-  ├── Photo, Adm No, Name, Gender
-  ├── Class at Departure & Academic Year
-  ├── Exit Date & Recorded Reason (clean unboxed text)
-  ├── Inactive Gap Duration (e.g., "2 Years 1 Month")
-  ├── Outstanding Fees prior to exit (₹ Preserved)
-  └── [Re-admit Student] Button & [View Trajectory] Button
+ [Exclusion from Active Portals]
+   ├── Result Center: Excluded from active student lists & mark entry
+   ├── Fee Collection: Excluded from active fee rosters & term demands
+   └── Admin / General: Excluded from active student counts
 
-  ─────────────────────────────────────────────────────────────────────────────
-
-  [3. STUDENT RETURNS (RE-ADMISSION)]
-  Click "Re-admit Student" ──> Guided Modal:
-  ├── Current Info: Name, Adm No, Last Studied Class
-  ├── Target Academic Year: Dropdown of active/future years
-  ├── Target New Class: Dropdown with manual class/division selection
-  ├── Return Date & Re-admission Notes
-  ├── Gap Summary: "2 missed academic years: 2024-2025, 2025-2026"
-  ├── Fee Status Preview: "Preserved prior dues: ₹400. No gap fees charged."
-  └── Commit Re-admission ──> Student status becomes 'Active', joins new class!
+ [Worksheet Module (worksheet.html & official-shared-bootstrap.js)]
+   ├── Dashboard:
+   │     ├── Total Students KPI (Active only, Alumni excluded)
+   │     ├── Class Summary Table (Active classes)
+   │     └── NEW: Alumni Summary Table (Grouped by Graduated Academic Year)
+   ├── Navigation Tabs:
+   │     ├── Student Register (Active students only)
+   │     └── NEW: Alumni Register Tab (Full profile + Year Filter with "All")
+   └── Class Worksheet Tab:
+         └── Data Type Dropdown: Includes "Alumni" (Filter by Year / All)
 ```
-
-### Visual Identity & Theme
-- **Layout & Structure**: Adheres to the Universal Frontend Design Constitution (SaaS Dashboard domain). Full 1440px desktop width, single-elevation cards with clean hairline borders (`border border-slate-200`), and generous whitespace.
-- **Color Palette & Discipline (60-30-10)**:
-  - `60% Neutral Canvas`: Crisp slate background (`bg-slate-50 / bg-white`).
-  - `30% Structural Surfaces`: Clean white cards with `border-slate-200` and subtle slate headers.
-  - `10% Accent Palette`:
-    - Discontinue action: Crimson/rose accents (`bg-rose-600 hover:bg-rose-700`, text badges `bg-rose-50 text-rose-700 border-rose-200`).
-    - Re-admission action: Emerald/teal accents (`bg-emerald-600 hover:bg-emerald-700`, text badges `bg-emerald-50 text-emerald-700 border-emerald-200`).
-    - Gap metadata: Unboxed muted typography with bullet separators (`·`).
-- **Typography & Tabular Discipline**:
-  - Headings: Clean sans font.
-  - Metrics, Adm Numbers, Dates, and Fees: `font-mono tabular-nums` for alignment without jitter.
-  - All application UI text strictly in English.
-- **Zero-Pill Discipline**:
-  - Tags and metadata (dates, missed years) rendered as unboxed quiet text separated by `·`.
-  - Filter controls rendered as functional segmented button tabs.
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
+## 3. Step-by-Step Implementation Details
 
-### Decision 1: Single Student Document with `continuityLog` and `academicYears` Map
-- **Chosen Approach**: Retain the student's unique ID (`admissionNo` / doc ID). Add an array `continuityLog` storing each status transition, and update `academicYears[yearLabel]` with the exact class and status for that specific year.
-- **Why**: Keeps student fees, receipts, attendance, and exam marks connected to one master identity. When generating multi-year reports or certificates, the full history is readily available without creating duplicated or orphaned student records.
-- **Alternative Considered**: Creating a new student document upon re-admission was rejected because it fragments student ID, breaks fee continuity, and loses past attendance history.
+### Step 1: Promotion Engine Refinement (`scripts/pages/result-page.js`)
+- **Current Behavior**: Promotes students and sets `class: nextClass`.
+- **Enhancement**:
+  - When `nextClass === 'Alumni'`, update the student document with:
+    ```javascript
+    {
+      class: 'Alumni',
+      status: 'alumni',
+      isAlumni: true,
+      graduatedYear: currentAcademicYear,
+      promotedFrom: fromClass,
+      promotedAt: new Date().toISOString()
+    }
+    ```
+  - Ensure failed students remain in their current class in the new target academic year.
+  - Audit logging ensures unalterable graduation records.
 
-### Decision 2: Fee Preservation & Gap Immunity
-- **Chosen Approach**: When a student is discontinued:
-  1. All payments made and pending fee items generated up to their discontinuation date remain intact.
-  2. The fee engine filters out `Discontinued` students when generating monthly or annual fee dues.
-  3. Payments against prior balances can still be collected directly from the collection screen / student profile.
-  4. Upon re-admission, active fee generation starts from the re-admission date / target academic year.
-- **Why**: Strictly adheres to the rule that dues up to departure date are preserved, gap years accrue zero fees, and new fees begin upon return.
+### Step 2: Student Login Integration (`index.html` & `scripts/pages/index-page.js` / `student-page.js`)
+- **Class Dropdown Update**:
+  - In `index.html` (Student Portal login modal/form) and `student.html`, populate the Class dropdown with available classes plus an explicit **"Alumni"** option:
+    ```html
+    <option value="Alumni">🎓 Alumni</option>
+    ```
+- **Login Verification Logic**:
+  - When "Alumni" is selected, query students where `(class == 'Alumni' || status == 'alumni' || status == 'graduated')` matching the entered admission number.
+  - Successfully load student session with `isAlumni: true` flag.
+  - Display their permanent records, past report cards, and graduated profile without error.
 
-### Decision 3: Dedicated "Continuity & Transfers" Drawer Section
-- **Chosen Approach**: Add a dedicated navigation heading `Continuity & Transfers` in `admin.html` with direct access to `#student-continuity`.
-- **Why**: Matches administrative workflow where student lifecycle events (departures, returns, transfer certificates) are tracked distinctly from regular student registration.
+### Step 3: Active Portals Isolation (`result-page.js`, `collection-page.js`, `admin-page.js`)
+- Ensure query and filter pipelines exclude Alumni:
+  ```javascript
+  const isActiveStudent = (student) => {
+    const cls = String(student.class || '').trim().toLowerCase();
+    const status = String(student.status || '').trim().toLowerCase();
+    return cls !== 'alumni' && status !== 'alumni' && status !== 'graduated' && status !== 'discontinued';
+  };
+  ```
+- **Result Center**: Alumni never appear in Mark Entry grids, Tabulation registers, or Exam attendance sheets.
+- **Fee Collection**: Alumni never appear in monthly fee generation or pending collection tables unless reviewing archived ledgers.
 
----
+### Step 4: Worksheet Dashboard - Alumni Summary Table (`worksheet.html` & `official-shared-bootstrap.js`)
+- **Total Students Metric**:
+  - Verify that `students.filter(isActiveStudent).length` is used for the active "Total Students" dashboard card.
+- **Alumni Summary Table Placement**:
+  - Place a dedicated section under the existing Class Summary table (`#official-tab-summary`):
+  ```html
+  <div class="mt-8 border-t border-slate-200 pt-6">
+      <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm font-bold border border-amber-200">
+                  <i class="fas fa-user-graduate"></i>
+              </span>
+              <div>
+                  <h3 class="text-base font-extrabold text-slate-800">Alumni Summary</h3>
+                  <p class="text-xs text-slate-500 font-medium">Graduated cohorts categorized by academic year</p>
+              </div>
+          </div>
+          <span id="alumni-total-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+              Total Alumni: 0
+          </span>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+          <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                  <tr>
+                      <th class="p-3">Graduated Academic Year</th>
+                      <th class="p-3 text-center">Boys</th>
+                      <th class="p-3 text-center">Girls</th>
+                      <th class="p-3 text-center">Total Alumni</th>
+                  </tr>
+              </thead>
+              <tbody id="alumni-summary-tbody" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Dynamically populated -->
+              </tbody>
+          </table>
+      </div>
+  </div>
+  ```
+- **Grouping Logic**: Group alumni by `graduatedYear || academicYear || 'Previous Cohort'` and tally boys, girls, and total count.
 
-## 4. Technical Architecture & Data Strategy
+### Step 5: Dedicated "Alumni Register" Tab (`worksheet.html` & `official-shared-bootstrap.js`)
+- **Navigation Update**:
+  - Add **"Alumni Register"** (`tab-alumni`) to Worksheet navigation links directly adjacent to Student Register.
+  - Ensure regular "Student Register" filters strictly active students (`!isAlumni`).
+- **Alumni Register Content Panel**:
+  - **Header Controls**:
+    - Academic Year Filter dropdown (`alumni-filter-year`): Populated with distinct graduation years plus an **"All Years"** option.
+    - Live Search input: Quick search by admission number, student name, or guardian name.
+    - Export / Print buttons: Quick export to CSV/Print for alumni associations or school records.
+  - **Table Structure**:
+    - Columns: Admission No, Student Name, Gender, Graduated Year, Completed Class, Guardian / Parent Name, Mobile / Contact, Address / Remarks.
 
-### System Component Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        ADMIN PORTAL COMPONENT MAP                           │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-  admin.html
-  ├── Sidebar Navigation:
-  │   └── <div class="drawer-heading">Continuity & Transfers</div>
-  │       └── <a href="#student-continuity">
-  │
-  ├── Section: #student-continuity-page
-  │   ├── Header & Contextual Academic Year Indicator
-  │   │
-  │   ├── Panel A: "Discontinue Student"
-  │   │   ├── Class Selector (#continuity-class-select)
-  │   │   ├── Student Selector (#continuity-student-select)
-  │   │   ├── Departure Date (#continuity-exit-date)
-  │   │   ├── Departure Reason / Notes (#continuity-exit-reason)
-  │   │   ├── Checkbox: #continuity-generate-tc
-  │   │   └── Action: #execute-discontinue-btn
-  │   │
-  │   └── Panel B: "Discontinued Students Archive"
-  │       ├── Metrics Counter (Total Discontinued, Current Year Departures)
-  │       ├── Search Input & Class Filter (#continuity-search-input)
-  │       ├── Responsive Table (#discontinued-students-table-body)
-  │       └── Action Buttons:
-  │           ├── Re-admit (#btn-open-readmit)
-  │           └── View History & Notes (#btn-view-continuity-history)
-  │
-  └── Modals:
-      ├── #readmission-popup: Target Year, Target Class, Date, Notes, Gap Review
-      └── #continuity-history-popup: Multi-year visual timeline of departures/returns
-
-  ─────────────────────────────────────────────────────────────────────────────
-
-  scripts/pages/admin-page.js
-  ├── State: rawStudents, students, academicYears, feeItems, allPayments
-  ├── Router: '#student-continuity' page activation in PAGE_PERMISSIONS
-  ├── Handlers:
-  │   ├── renderContinuityPage()
-  │   ├── populateContinuityStudentDropdown()
-  │   ├── handleDiscontinueStudent()
-  │   ├── openReadmitModal()
-  │   ├── handleExecuteReadmission()
-  │   └── openContinuityHistoryModal()
-  └── Firestore Mutations:
-      └── updateDoc(studentRef, { status, continuityLog, academicYears, ... })
-
-  scripts/pages/collection-page.js
-  └── Ensure discontinued students can be searched with 'Discontinued' badge
-      for prior dues settlement, while excluding them from new fee generation.
-```
-
-### Data Schema Extensions (`firebase-blueprint.json` & Firestore)
-
-1. **Student Entity Updates**:
-   - `status`: String enum includes `'Active' | 'Inactive' | 'Graduated' | 'Discontinued'`.
-   - `discontinuationDetails`:
-     ```typescript
-     {
-       date: string;          // ISO date
-       academicYear: string;  // e.g. "2024-2025"
-       lastClass: string;     // e.g. "Class 4"
-       reason: string;        // Notes on why student left
-       recordedBy: string;    // Admin user email
-       tcGenerated: boolean;  // TC flag
-     }
-     ```
-   - `readmissionDetails`:
-     ```typescript
-     {
-       date: string;          // ISO date
-       targetYear: string;    // e.g. "2026-2027"
-       targetClass: string;   // e.g. "Class 6"
-       reason: string;        // Notes on return
-       gapYears: string[];    // e.g. ["2024-2025", "2025-2026"]
-       recordedBy: string;
-     }
-     ```
-   - `continuityLog`: Array of historical events:
-     ```typescript
-     Array<{
-       id: string;
-       type: 'discontinue' | 'readmit';
-       timestamp: string;
-       academicYear: string;
-       class: string;
-       reason: string;
-       adminEmail: string;
-       priorBalance?: number;
-     }>
-     ```
-
-2. **Fee Generation & Collection Scoping**:
-   - `collection-page.js` & `admin-page.js` fee calculations treat `Discontinued` students as non-accruing for any fee cycles occurring during their gap periods.
-   - Any payments made against prior balances will continue to be recorded against the student's unique ID.
+### Step 6: Class Worksheet Data Selection Integration (`worksheet.html` & `official-shared-bootstrap.js`)
+- In the Class Worksheet tab (`#official-tab-worksheet`):
+  - Find the **Data Type** selector (currently containing Student, Staff, Fee Collection, Exam, etc.).
+  - Add `<option value="alumni">🎓 Alumni</option>`.
+  - When "Alumni" is selected:
+    - Display an **Academic Year** selector containing all distinct graduation years, plus an **"All"** option.
+    - Render and export data rows matching the selected alumni cohort with all core profile fields.
 
 ---
 
-## 5. Execution & Verification Plan
+## 4. Verification & Testing Plan
 
-1. **Update `firebase-blueprint.json`**:
-   - Add `Discontinued` status and specify `continuityLog`, `discontinuationDetails`, and `readmissionDetails` properties on the Student entity.
-2. **Add Navigation & UI Markup in `admin.html`**:
-   - Add `Continuity & Transfers` section in sidebar with link to `#student-continuity`.
-   - Insert `#student-continuity-page` markup with Discontinue Action Panel, Discontinued Directory table, `#readmission-popup`, and `#continuity-history-popup`.
-3. **Implement Logic in `scripts/pages/admin-page.js`**:
-   - Register `student-continuity` in `PAGE_PERMISSIONS` with `students.manage`.
-   - Implement dropdown binding, table rendering, gap calculations, `handleDiscontinueStudent`, and `handleExecuteReadmission`.
-   - Add optional TC generation hook if checkbox is checked.
-4. **Insulate Fee Ledger & Update Collection Visibility**:
-   - Ensure `collection-page.js` allows searching/viewing discontinued students to settle prior dues with badge indicator, while excluding them from active periodic fee demands.
-5. **Compile & Verification**:
-   - Run `compile_applet` to ensure syntax and build pass cleanly.
+1. **Promotion Testing**:
+   - Run a test promotion in Results Center for a terminal class with passed and failed students.
+   - Verify that passed students transition to `class: 'Alumni'`, `status: 'alumni'`, with `graduatedYear` accurately recorded.
+   - Verify that failed students remain in their current class.
+2. **Student Login Testing**:
+   - Navigate to `index.html` student login form.
+   - Select "Alumni" in the Class dropdown, enter an alumni admission number.
+   - Confirm successful login and correct dashboard display.
+3. **Worksheet Dashboard Verification**:
+   - Confirm Total Students KPI counts only active students.
+   - Verify Alumni Summary Table renders correctly below the Class Summary table with accurate boy, girl, and total counts per graduated year.
+4. **Worksheet Alumni Register Tab Verification**:
+   - Switch to the "Alumni Register" tab.
+   - Verify that all alumni records appear with full profile details.
+   - Test year filtering (selecting a specific year displays only that cohort, selecting "All" displays all alumni).
+5. **Class Worksheet Tab Verification**:
+   - Select "Alumni" from the Data Type dropdown.
+   - Verify Academic Year filter works with both specific years and "All".
+   - Confirm export/print functionality generates valid data.
+6. **Active Portals Integrity Check**:
+   - Open Result Center and Fee Collection portals to confirm alumni students are strictly absent from regular active rosters.

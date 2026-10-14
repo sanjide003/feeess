@@ -834,7 +834,9 @@ const initializeDataListeners = () => {
 
     onSnapshot(collection(db, `${BASE_PATH}/students`), (snap) => {
         students = snap.docs.map(d => ({id: d.id, ...d.data()}));
-        classes = [...new Set(students.map(s => s.class).filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+        classes = [...new Set(students.map(s => s.class).filter(Boolean))]
+            .filter((c) => String(c).trim().toLowerCase() !== 'alumni')
+            .sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
         scheduleRefresh();
     });
 
@@ -1552,7 +1554,7 @@ const populateDropdowns = () => {
 const updateDashboard = () => {
     const isTeacherScope = (roleScope === 'staff' && teacherAssignedClasses.length > 0);
     const targetClasses = isTeacherScope ? classes.filter(c => teacherAssignedClasses.includes(c)) : classes;
-    const yearStudents = students.filter((s) => (!isTeacherScope || teacherAssignedClasses.includes(s.class)) && (s.academicYear === currentAcademicYear || !s.academicYear));
+    const yearStudents = students.filter((s) => (!isTeacherScope || teacherAssignedClasses.includes(s.class)) && (s.academicYear === currentAcademicYear || !s.academicYear) && String(s.class || '').trim().toLowerCase() !== 'alumni' && s.status !== 'alumni' && s.status !== 'graduated');
     const yearRows = examResultsCache.filter((row) => (!isTeacherScope || teacherAssignedClasses.includes(row.classLabel)) && (row.academicYear === currentAcademicYear || !row.academicYear));
     const yearPublishedRows = yearRows.filter((row) => row.published === true);
     document.getElementById('dash-total-classes').textContent = targetClasses.length;
@@ -4634,12 +4636,27 @@ document.getElementById('run-auto-promotion-btn')?.addEventListener('click', asy
         const fromClass = student.class || row.classLabel || '';
         const nextClass = classTargetMap[fromClass] !== undefined ? classTargetMap[fromClass] : getNextClassLabel(fromClass);
         if (!nextClass) return; // Discontinue / No promotion
-        updates.push(updateDoc(doc(db, `${BASE_PATH}/students`, student.id), {
-            class: nextClass,
+
+        const isAlumniTarget = String(nextClass).trim().toLowerCase() === 'alumni';
+        const studentPayload = isAlumniTarget ? {
+            class: 'Alumni',
+            status: 'alumni',
+            isAlumni: true,
+            graduatedYear: currentAcademicYear || student.academicYear || '',
+            finalClass: fromClass,
             academicYear: targetAcademicYear,
             promotedFrom: fromClass,
             promotedAt: new Date().toISOString()
-        }));
+        } : {
+            class: nextClass,
+            status: 'active',
+            isAlumni: false,
+            academicYear: targetAcademicYear,
+            promotedFrom: fromClass,
+            promotedAt: new Date().toISOString()
+        };
+
+        updates.push(updateDoc(doc(db, `${BASE_PATH}/students`, student.id), studentPayload));
         promotionDecisions.push(setDoc(doc(collection(db, `${BASE_PATH}/promotionDecisions`)), {
             studentId: student.id,
             studentName: student.name || '',
