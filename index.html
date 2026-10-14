@@ -18,6 +18,22 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="scripts/shared/session-guard.js"></script>
+    <script>
+        (function() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const isExplicitPublic = params.get('public') === '1' || params.get('view') === 'public';
+                const isAddStudent = params.get('addStudent') === '1';
+                if (!isExplicitPublic && !isAddStudent && window.AppSession) {
+                    if (window.AppSession.hasStudentSession?.()) {
+                        window.location.replace('student.html');
+                    } else if (window.AppSession.hasStaffSession?.() || window.AppSession.hasAdminSession?.()) {
+                        window.location.replace('official.html');
+                    }
+                }
+            } catch (_err) {}
+        })();
+    </script>
     
     <!-- Global CSS Link -->
     <link rel="stylesheet" href="styles/main.css">

@@ -124,15 +124,15 @@ const studentPwa = registerPortalForPwa('student', {
         const confirmLogout = () => confirm('Are you sure you want to log out?');
         async function logoutStudent({ skipConfirm = false } = {}) {
             if(!skipConfirm && !confirmLogout()) return;
-            window.AppSession?.logoutStudent(window.AppSession?.getStudentId?.(), { removeAccount: true });
-            window.location.href = 'index.html';
+            window.AppSession?.logoutStudent(window.AppSession?.getStudentId?.(), { removeAccount: false });
+            window.location.href = 'index.html?public=1';
         }
         window.logoutStudent = logoutStudent;
         document.getElementById('student-logout-btn')?.addEventListener('click', () => logoutStudent());
-        document.getElementById('student-public-btn')?.addEventListener('click', () => { window.location.href = 'index.html'; });
+        document.getElementById('student-public-btn')?.addEventListener('click', () => { window.location.href = 'index.html?public=1'; });
         document.querySelectorAll('.student-bottom-nav-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
-                if (btn.dataset.action === 'public') { window.location.href = 'index.html'; return; }
+                if (btn.dataset.action === 'public') { window.location.href = 'index.html?public=1'; return; }
                 if (btn.dataset.target) activateStudentTab(btn.dataset.target);
             });
         });

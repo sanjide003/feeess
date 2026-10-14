@@ -28,10 +28,22 @@
     const removeKey = (key) => localStorage.removeItem(key);
 
     const setCurrentRole = (role = '') => {
-        if (role) sessionStorage.setItem(CURRENT_ROLE_KEY, role);
-        else sessionStorage.removeItem(CURRENT_ROLE_KEY);
+        if (role) {
+            sessionStorage.setItem(CURRENT_ROLE_KEY, role);
+            localStorage.setItem(CURRENT_ROLE_KEY, role);
+        } else {
+            sessionStorage.removeItem(CURRENT_ROLE_KEY);
+            localStorage.removeItem(CURRENT_ROLE_KEY);
+        }
     };
-    const getRole = () => sessionStorage.getItem(CURRENT_ROLE_KEY) || '';
+    const getRole = () => {
+        const storedRole = sessionStorage.getItem(CURRENT_ROLE_KEY) || localStorage.getItem(CURRENT_ROLE_KEY);
+        if (storedRole) return storedRole;
+        if (getStudentState()?.studentId) return 'student';
+        if (isStateFresh(getStaffState(), 'staff')) return 'staff';
+        if (isStateFresh(getAdminState(), 'admin')) return 'admin';
+        return '';
+    };
 
     const buildState = (extra = {}) => {
         const timestamp = now();
@@ -200,6 +212,9 @@
             const role = getRole();
             return isStateFresh(getStateByRole(role), role);
         },
+        hasStudentSession,
+        hasStaffSession,
+        hasAdminSession,
         startStudent(studentId, profile = {}) {
             writeJson(STUDENT_STATE_KEY, buildState({ studentId, role: 'student' }));
             const accounts = getStudentAccounts();

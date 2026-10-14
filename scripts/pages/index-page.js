@@ -70,6 +70,14 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
             if (sessionNotice) showLoginMessage(sessionNotice);
         };
         window.openLogin = () => {
+            if (window.AppSession?.hasStudentSession?.()) {
+                window.location.href = 'student.html';
+                return;
+            }
+            if (window.AppSession?.hasStaffSession?.() || window.AppSession?.hasAdminSession?.()) {
+                window.location.href = 'official.html';
+                return;
+            }
             const accounts = window.AppSession?.getStudentAccounts?.() || [];
             const forceAdd = new URLSearchParams(window.location.search).get('addStudent') === '1';
             if (!forceAdd && accounts.length > 0) {
@@ -77,7 +85,7 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
                 return;
             }
             openStudentLoginModal();
-        }
+        };
 
         const setAccordionState = (accordionId = '', open = false) => {
             const content = document.getElementById(accordionId);
