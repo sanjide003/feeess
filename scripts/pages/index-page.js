@@ -234,33 +234,6 @@ import { BASE_PATH, applyInstitutionBranding, escapeHtml, hardenExternalLinks, n
         }
         window.addEventListener('resize', fitHeroTitle);
 
-        let deferredPrompt;
-        const installContainer = document.getElementById('install-app-container');
-        const installBtn = document.getElementById('install-app-btn');
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installContainer.classList.remove('hidden');
-        });
-
-        installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
-                }
-                deferredPrompt = null;
-                installContainer.classList.add('hidden');
-            }
-        });
-
-        window.addEventListener('appinstalled', () => {
-            installContainer.classList.add('hidden');
-            deferredPrompt = null;
-        });
-
         registerServiceWorker();
         let allStudents = [], selectedLoginStudent = null;
         let directoryCategories = [];

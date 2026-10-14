@@ -2,8 +2,14 @@ import { signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/f
 import { doc, getDoc, collection, query, where, getDocs, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { db, auth } from '../../config/firebase-config.js';
 import { BASE_PATH, applyInstitutionBranding, buildEmptyState, enableSmartSelectWindowing, escapeHtml, formatCurrency, formatDateDisplay, hardenExternalLinks, registerServiceWorker, renderVersionInfo, sanitizeUrl } from '../shared/app-common.js';
+import { registerPortalForPwa } from '../shared/pwa-install.js';
 
 window.AppSession?.guardStudentPage?.();
+
+const studentPwa = registerPortalForPwa('student', {
+    menuItemId: 'student-install-menu-item',
+    menuBtnId: 'student-install-btn'
+});
 
         hardenExternalLinks();
         enableSmartSelectWindowing(document, { visibleCount: 6 });
@@ -4488,6 +4494,7 @@ window.AppSession?.guardStudentPage?.();
                 setTimeout(() => {
                     loader.style.display = 'none';
                     maybeShowStartupNotificationPrompt();
+                    studentPwa.showPopupIfEligible();
                 }, 300);
 
                 // Automatically re-evaluate notifications when user opens/returns to the app on a new day

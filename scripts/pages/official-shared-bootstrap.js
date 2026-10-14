@@ -2,6 +2,7 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     import { collection, doc, getDoc, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
     import { db, auth } from '../../config/firebase-config.js';
     import { BASE_PATH, applyCachedInstitutionLogo, escapeHtml, rememberInstitutionLogo, sanitizeUrl } from '../shared/app-common.js';
+    import { registerPortalForPwa } from '../shared/pwa-install.js';
 
     let allStudents = [];
     let allStaff = [];
@@ -292,6 +293,13 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
     };
 
     const isWorksheetPage = window.location.pathname.toLowerCase().includes('worksheet') || document.body.dataset.pageType === 'worksheet';
+    let officialPwa = null;
+    if (!isWorksheetPage) {
+      officialPwa = registerPortalForPwa('official', {
+        menuItemId: 'official-install-menu-item',
+        menuBtnId: 'official-install-btn'
+      });
+    }
 
     const setTab = (tab = 'dashboard') => {
       if (!isWorksheetPage && tab !== 'dashboard') {
@@ -4432,6 +4440,15 @@ import { signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } fro
             openMyProfileModal();
           });
         }
+        const navProfileBtn = document.getElementById('official-nav-profile-btn');
+        if (navProfileBtn && !navProfileBtn.dataset.boundProfileModal) {
+          navProfileBtn.dataset.boundProfileModal = 'true';
+          navProfileBtn.addEventListener('click', () => {
+            setMobileMenuState(false);
+            openMyProfileModal();
+          });
+        }
+        officialPwa?.showPopupIfEligible();
       }
     };
 
